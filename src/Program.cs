@@ -8,7 +8,7 @@ namespace MakiseDesktopPet
     internal static class Program
     {
         [STAThread]
-        private static void Main()
+        private static void Main(string[] args)
         {
             try
             {
@@ -28,7 +28,9 @@ namespace MakiseDesktopPet
                 try
                 {
                     string directory = AppDomain.CurrentDomain.BaseDirectory;
-                    Application.Run(new PetForm(directory));
+                    PetForm pet = new PetForm(directory);
+                    if (Array.IndexOf(args, "--preview-sleep") >= 0) pet.EnterSleep();
+                    Application.Run(pet);
                 }
                 catch (Exception error)
                 {

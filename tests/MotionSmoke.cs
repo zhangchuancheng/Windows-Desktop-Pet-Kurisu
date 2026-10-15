@@ -49,7 +49,7 @@ namespace MakiseDesktopPet
                 {
                     motion.Reset();
                     sprites.Resize(height);
-                    foreach (Pose pose in new[] {Pose.Idle, Pose.Blink, Pose.Poke, Pose.PokeSkeptical, Pose.PokeWink})
+                    foreach (Pose pose in new[] {Pose.Idle, Pose.Blink, Pose.PokeBlock, Pose.PokeFold, Pose.PokeCheek})
                     {
                         Bitmap source = sprites.Get(pose);
                         foreach (double offset in new[] {-0.5, 0.0, 1.5, 5.5})
@@ -107,7 +107,7 @@ namespace MakiseDesktopPet
                         {
                             Call(pet, "OnMouseDown", new MouseEventArgs(MouseButtons.Left, 1, 0, 0, 0));
                             Call(pet, "OnMouseUp", new MouseEventArgs(MouseButtons.Left, 1, 0, 0, 0));
-                            Require((Pose)Read(pet, "pose") == new[] {Pose.Poke, Pose.PokeSkeptical, Pose.PokeWink}[i % 3], "Click cycle changed");
+                            Require((Pose)Read(pet, "pose") == new[] {Pose.PokeBlock, Pose.PokeFold, Pose.PokeCheek}[i % 3], "Click cycle changed");
                             Pump(270);
                         }
                         Pump(450);

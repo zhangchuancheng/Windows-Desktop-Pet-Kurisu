@@ -15,8 +15,9 @@ namespace MakiseDesktopPet
         private const int BubbleDurationMs = 5000;
         private const int DragThresholdPx = 6;
         private const int DragDirectionThresholdPx = 4;
+        private const int RapidReleaseMs = 1200;
         private static readonly Pose[] ClickPoses =
-            { Pose.Poke, Pose.PokeSkeptical, Pose.PokeWink };
+            { Pose.PokeBlock, Pose.PokeFold, Pose.PokeCheek };
         private readonly SettingsStore settingsStore;
         private readonly PetSettings settings;
         private readonly SpriteAssets sprites;
@@ -31,6 +32,7 @@ namespace MakiseDesktopPet
         private readonly Random random = new Random();
         private readonly Queue<long> recentClicks = new Queue<long>();
         private readonly PetMotion motion = new PetMotion();
+        private readonly SleepAnimation sleepAnimation = new SleepAnimation();
         private readonly LayeredIdleAnimation layeredIdle;
 
         private Pose pose = Pose.Idle;
@@ -45,6 +47,7 @@ namespace MakiseDesktopPet
         private Point pressPoint;
         private Point pressBase;
         private long lastInteraction;
+        private long sleepStarted;
         private long poseUntil;
         private long blinkUntil;
         private long blinkStarted;
@@ -53,6 +56,7 @@ namespace MakiseDesktopPet
         private long bubbleUntil;
         private long specialUntil;
         private long rapidCooldownUntil;
+        private long rapidPoseUntil;
         private string bubbleText;
         private BubblePlacement bubblePlacement;
 
@@ -104,7 +108,7 @@ namespace MakiseDesktopPet
         {
             ContextMenuStrip menu = new ContextMenuStrip();
             menu.ShowImageMargin = false;
-            menu.Items.Add("换一句话", null, delegate { Interact(); ShowMessage("click"); });
+            menu.Items.Add("换一句话", null, delegate { ChangeDialogue(); });
             ToolStripMenuItem sizes = new ToolStripMenuItem("调整大小");
             foreach (int height in new[] { 160, 220, 280, 340 })
             {
@@ -235,6 +239,8 @@ namespace MakiseDesktopPet
             if (!dragging && dx * dx + dy * dy >= DragThresholdPx * DragThresholdPx)
             {
                 dragging = true;
+                recentClicks.Clear();
+                poseUntil = 0;
                 motion.CancelRecoil();
                 bubble.Hide();
                 bubbleUntil = 0;
@@ -287,7 +293,15 @@ namespace MakiseDesktopPet
                 if (updated || force) SetFrame(idleFrame);
                 return;
             }
-            bool animated = pose == Pose.Poke || pose == Pose.PokeSkeptical || pose == Pose.PokeWink;
+            if (pose == Pose.Sleep)
+            {
+                bool updated;
+                Bitmap sleepFrame = sleepAnimation.Render(sprites.Get(Pose.Sleep),
+                    now - sleepStarted, out updated);
+                if (updated || force) SetFrame(sleepFrame);
+                return;
+            }
+            bool animated = pose == Pose.PokeBlock || pose == Pose.PokeFold || pose == Pose.PokeCheek;
             if (!animated)
             {
                 if (force) SetFrame(CurrentFrame());
@@ -319,6 +333,7 @@ namespace MakiseDesktopPet
             if (dragging)
             {
                 dragging = false;
+                recentClicks.Clear();
                 poseUntil = 0;
                 Location = new Point(baseX, baseY);
                 SetPose(Pose.Idle);
@@ -333,10 +348,6 @@ namespace MakiseDesktopPet
                 }
                 else
                 {
-                    motion.StartRecoil(clock.ElapsedMilliseconds);
-                    SetPose(ClickPoses[nextClickPose]);
-                    nextClickPose = (nextClickPose + 1) % ClickPoses.Length;
-                    poseUntil = clock.ElapsedMilliseconds + 650;
                     HandleClick();
                 }
             }
@@ -346,18 +357,43 @@ namespace MakiseDesktopPet
         private void HandleClick()
         {
             long now = clock.ElapsedMilliseconds;
+            if (pose == Pose.Rapid)
+            {
+                // Refresh only the pose deadline, never the speech/cooldown.
+                rapidPoseUntil = now + RapidReleaseMs;
+                return;
+            }
             recentClicks.Enqueue(now);
             while (recentClicks.Count > 0 && now - recentClicks.Peek() > 1800)
                 recentClicks.Dequeue();
 
-            if (recentClicks.Count >= 4 && now >= rapidCooldownUntil)
+            if (recentClicks.Count >= 4)
             {
-                rapidCooldownUntil = now + 20000;
-                specialUntil = now + BubbleDurationMs;
                 recentClicks.Clear();
-                ShowMessage("rapid");
+                motion.CancelRecoil();
+                poseUntil = 0;
+                rapidPoseUntil = now + RapidReleaseMs;
+                SetPose(Pose.Rapid);
+                if (now >= rapidCooldownUntil)
+                {
+                    rapidCooldownUntil = now + 20000;
+                    specialUntil = now + BubbleDurationMs;
+                    ShowMessage("rapid");
+                }
+                else if (now >= specialUntil)
+                {
+                    // A silent reaction during cooldown must not retain an
+                    // unrelated normal-click sentence from the previous pose.
+                    bubble.Hide();
+                    bubbleUntil = 0;
+                }
+                return;
             }
-            else if (now >= specialUntil)
+            motion.StartRecoil(now);
+            SetPose(ClickPoses[nextClickPose]);
+            nextClickPose = (nextClickPose + 1) % ClickPoses.Length;
+            poseUntil = now + 650;
+            if (now >= specialUntil)
                 ShowMessage("click");
         }
 
@@ -375,22 +411,34 @@ namespace MakiseDesktopPet
         private void SetPose(Pose next)
         {
             if (pose == next) return;
+            if (pose == Pose.Rapid)
+            {
+                rapidPoseUntil = 0;
+                recentClicks.Clear();
+            }
             if (next == Pose.Idle && pose != Pose.Blink) layeredIdle.Enter(clock.ElapsedMilliseconds);
+            if (next == Pose.Sleep) sleepStarted = clock.ElapsedMilliseconds;
             pose = next;
             RenderMotion(clock.ElapsedMilliseconds, true);
+        }
+
+        internal void EnterSleep()
+        {
+            if (sleeping) return;
+            sleeping = true;
+            recentClicks.Clear();
+            motion.CancelRecoil();
+            bubble.Hide();
+            bubbleUntil = 0;
+            poseUntil = 0;
+            SetPose(Pose.Sleep);
         }
 
         private void OnTimerTick(object sender, EventArgs e)
         {
             long now = clock.ElapsedMilliseconds;
             if (!sleeping && !pressed && now - lastInteraction >= SleepAfterMs)
-            {
-                sleeping = true;
-                motion.CancelRecoil();
-                bubble.Hide();
-                bubbleUntil = 0;
-                SetPose(Pose.Sleep);
-            }
+                EnterSleep();
 
             if (bubbleUntil > 0 && now >= bubbleUntil)
             {
@@ -400,6 +448,11 @@ namespace MakiseDesktopPet
 
             if (!sleeping && !dragging && !pressed)
             {
+                if (pose == Pose.Rapid && now >= rapidPoseUntil)
+                {
+                    SetPose(Pose.Idle);
+                    ScheduleBlink(now);
+                }
                 if (poseUntil > 0 && now >= poseUntil)
                 {
                     poseUntil = 0;
@@ -431,9 +484,23 @@ namespace MakiseDesktopPet
             if (Visible && !dragging) RenderMotion(now, false);
         }
 
+        private void ChangeDialogue()
+        {
+            Interact();
+            if (pose == Pose.Rapid) SetPose(Pose.Idle);
+            if (sleeping)
+            {
+                sleeping = false;
+                SetPose(Pose.Wake);
+                poseUntil = clock.ElapsedMilliseconds + 850;
+                ScheduleBlink(clock.ElapsedMilliseconds);
+            }
+            ShowMessage(pose == Pose.Wake ? "wake" : "click");
+        }
+
         private void ShowMessage(string category)
         {
-            bubbleText = dialogues.Pick(category);
+            bubbleText = category == "click" ? dialogues.PickClick(pose) : dialogues.Pick(category);
             bubbleUntil = clock.ElapsedMilliseconds + BubbleDurationMs;
             LayoutBubble();
             if (Visible && !bubble.Visible) bubble.Show();
@@ -502,6 +569,7 @@ namespace MakiseDesktopPet
             if (settings.Height == height) return;
             settings.Height = height;
             motion.Reset();
+            sleepAnimation.Reset();
             sprites.Resize(height);
             layeredIdle.Resize(height);
             RenderMotion(clock.ElapsedMilliseconds, true);
@@ -552,6 +620,8 @@ namespace MakiseDesktopPet
         private void HideToTray()
         {
             Interact();
+            recentClicks.Clear();
+            if (pose == Pose.Rapid) SetPose(Pose.Idle);
             bubble.Hide();
             bubbleUntil = 0;
             Hide();
@@ -582,6 +652,7 @@ namespace MakiseDesktopPet
             bubble.Dispose();
             timer.Dispose();
             motion.Dispose();
+            sleepAnimation.Dispose();
             layeredIdle.Dispose();
             sprites.Dispose();
             base.OnFormClosed(e);

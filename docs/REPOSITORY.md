@@ -19,29 +19,26 @@
 
 以上由 `.gitignore` 排除，文件仍保留在本机。七张实际运行图层不被忽略；`tools/prepare-idle-layers.ps1` 可以重建图层及预览，但会覆盖派生 PNG，使用前应保留手工修改。
 
-## 后续推送
+## 仓库与版本
 
-本次整理没有提交、添加远程仓库或推送。整理时本地分支为 `main`，没有提交，也没有配置远程地址。
+公开仓库：[zhangchuancheng/Windows-Desktop-Pet-Kurisu](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu)，默认分支 `main`。第二版标记为 `v2.0.0`，变更见 [CHANGELOG.md](../CHANGELOG.md)。
 
-在项目根目录检查并创建首次提交：
+提交作者使用 `zhangchuancheng` 及该 GitHub 账号的 noreply 邮箱。后续提交前检查本地身份与远程地址，避免将提交归属到其他账号：
 
 ```powershell
 git status --short
+git config user.name
+git config user.email
+git remote -v
 git add .
 git diff --cached --stat
 git diff --cached --name-only
-git commit -m "Initial desktop pet prototype"
+git commit -m "Describe the change"
+git push origin main
 ```
 
-在 GitHub 创建一个空仓库后，将下面的占位地址替换为实际地址再执行：
+`origin` 已配置，不需要重新添加。v2.0.0 发布源码与更新说明，不附加新的运行包；之前的 ZIP 不包含第二版改动。需要运行时从源码执行 `build.ps1`；之后明确需要打包时再运行 `package.ps1`。
 
-```powershell
-git remote add origin https://github.com/YOUR_ACCOUNT/YOUR_REPOSITORY.git
-git push -u origin main
-```
-
-如果已经配置 `origin`，先运行 `git remote -v` 核对，不重复执行 `remote add`。本次不制作安装包；之后需要发布运行版本时再手动运行 `package.ps1`，将 `releases/` 中的新运行包用于发布。
-
-## 本次整理验证（2026-10-15）
+## 首次整理验证（2026-10-15，历史记录）
 
 将 Git 会收录的 62 个文件（约 24.4 MiB）复制到独立目录，使用其中的 build.ps1 成功构建，确认无需本机 dist 或测试产物。四份测试源码编译通过；运行四尺寸分层像素及眨眼检查通过。PowerShell/Python 语法、Markdown 文件链接和忽略规则检查通过，八张状态立绘与七张运行图层均在提交候选中。打包脚本已同步新目录并通过语法检查，本次没有执行打包或重复三分钟验收。

@@ -152,12 +152,12 @@ namespace MakiseDesktopPet
                 Check(store.Load().TopMost==top,"layer preference saves "+top+" (hidden window; OS z-order not tested)");
             }
             Dialogues lines=(Dialogues)Read(pet,"dialogues");
-            foreach(string category in new[]{"click","rapid","wake","drag"})
+            foreach(string category in Dialogues.Categories)
             {
                 string previous=null;
                 for(int i=0;i<100;i++) { string next=lines.Pick(category); if(next==previous) throw new Exception("repeated dialogue"); previous=next; }
             }
-            Check(true,"400 dialogue selections without consecutive duplicate");
+            Check(true,"800 dialogue selections without consecutive duplicate");
             Call(pet,"ChangeSize",220);
             Place(100,180);
             Write(pet,"bubbleUntil",0L);
@@ -165,7 +165,7 @@ namespace MakiseDesktopPet
             for(int i=0;i<3;i++)
             {
                 stage="点击表情 "+(i+1); Click();
-                Check((Pose)Read(pet,"pose")==new[]{Pose.Poke,Pose.PokeSkeptical,Pose.PokeWink}[i],"click expression "+(i+1));
+                Check((Pose)Read(pet,"pose")==new[]{Pose.PokeBlock,Pose.PokeFold,Pose.PokeCheek}[i],"click expression "+(i+1));
                 Pump(1400,50);
             }
             int clickIndex=(int)Read(pet,"nextClickPose");

@@ -33,6 +33,13 @@ namespace MakiseDesktopPet
             return amplitude * (0.5 - 0.5 * Math.Cos(now * Math.PI * 2 / 4200.0));
         }
 
+        internal static double SleepBreath(long elapsed, int height)
+        {
+            // Start relaxed, then breathe more slowly and softly than awake idle.
+            double amplitude = Math.Min(1.5, height / 220.0);
+            return amplitude * (0.5 - 0.5 * Math.Cos(Math.Max(0, elapsed) * Math.PI * 2 / 5600.0));
+        }
+
         internal double Displacement(long now, int height)
         {
             double recoil = 0;

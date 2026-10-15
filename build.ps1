@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 $projectRoot = $PSScriptRoot
 $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $compiler)) {
@@ -9,7 +9,7 @@ if (-not (Test-Path -LiteralPath $compiler)) {
 }
 
 $spriteDir = Join-Path $projectRoot 'assets\sprites'
-foreach ($state in @('idle', 'blink', 'poke', 'poke-skeptical', 'poke-wink', 'drag', 'sleep', 'wake')) {
+foreach ($state in @('idle', 'blink', 'poke-block', 'poke-fold', 'poke-cheek', 'rapid', 'drag', 'sleep', 'wake')) {
     if (-not (Test-Path -LiteralPath (Join-Path $spriteDir ($state + '.png')))) {
         throw "Missing sprite: $state.png"
     }
@@ -36,6 +36,7 @@ Copy-Item -LiteralPath (Join-Path $projectRoot 'App.config') -Destination (Join-
 $distSprites = Join-Path $dist 'assets\sprites'
 New-Item -ItemType Directory -Force -Path $distSprites | Out-Null
 Copy-Item -Path (Join-Path $spriteDir '*.png') -Destination $distSprites -Force
+Copy-Item -LiteralPath (Join-Path $spriteDir 'click-colors.json') -Destination $distSprites -Force
 $distLayers = Join-Path $dist 'assets\layers\idle-v1'
 New-Item -ItemType Directory -Force -Path $distLayers | Out-Null
 foreach ($file in $layerFiles) {
