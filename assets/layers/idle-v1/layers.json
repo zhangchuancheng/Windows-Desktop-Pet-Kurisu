@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "status": "integrated-step3",
+  "canvas": {
+    "width": 1122,
+    "height": 1402
+  },
+  "coordinates": "full-canvas pixels; x right, y down; left/right are viewer-relative",
+  "drawOrder": [
+    "hair-back-left",
+    "hair-back-right",
+    "body",
+    "head-base",
+    "eyes"
+  ],
+  "layers": [
+    {
+      "id": "hair-back-left",
+      "file": "hair-back-left.png",
+      "pivot": [
+        350,
+        550
+      ],
+      "parent": "head-root"
+    },
+    {
+      "id": "hair-back-right",
+      "file": "hair-back-right.png",
+      "pivot": [
+        800,
+        540
+      ],
+      "parent": "head-root"
+    },
+    {
+      "id": "body",
+      "file": "body.png",
+      "pivot": [
+        580,
+        1320
+      ],
+      "parent": null
+    },
+    {
+      "id": "head-base",
+      "file": "head-base.png",
+      "pivot": [
+        580,
+        645
+      ],
+      "parent": "body"
+    },
+    {
+      "id": "eyes",
+      "variants": {
+        "open": "eyes-open.png",
+        "half": "eyes-half.png",
+        "closed": "eyes-closed.png"
+      },
+      "pivot": [
+        580,
+        645
+      ],
+      "parent": "head-base",
+      "transform": "inherit exact head transform; display one variant only"
+    }
+  ],
+  "referencePose": "preview-open.png",
+  "validation": {
+    "headDegrees": 1.2,
+    "hairDegrees": 1.5,
+    "headTranslationSourcePixels": [
+      4,
+      -3
+    ],
+    "type": "static offset composites, not runtime animation",
+    "runtimeIntegration": true
+  },
+  "notes": [
+    "Head contains face, brows, mouth, bangs and front side locks. Eye overlays include a small feathered skin margin.",
+    "Rear hair roots overlap head and body; center overlap is hidden behind torso.",
+    "Generated body and rear-hair plates restore occluded regions. Visible source colors are retained where feasible.",
+    "Runtime loads these layers for Idle and Blink. Click, Drag, Sleep and Wake retain the original whole-sprite states."
+  ]
+}

@@ -1,0 +1,28 @@
+# Local builds, packages and acceptance output
+/dist/
+/releases/
+/test-artifacts/
+/MakiseDesktopPet-Windows.zip
+/MakiseDesktopPet-Source.zip
+bin/
+obj/
+*.exe
+*.pdb
+
+# Reproducible asset previews (keep runtime layers and editable sources)
+/assets/layers/idle-v1/preview-*.png
+/assets/layers/idle-v1/check-overlap-*.png
+
+# Editor and machine-local files
+.vs/
+.idea/
+*.user
+*.suo
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+Thumbs.db
+Desktop.ini
+.DS_Store
