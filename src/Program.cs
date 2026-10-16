@@ -35,7 +35,7 @@ namespace MakiseDesktopPet
                 catch (Exception error)
                 {
                     string message = "桌宠启动或运行时出错：\n" + error.Message +
-                        "\n\n请确认 assets/sprites、assets/layers/idle-v1 和 dialogues.json 与程序在同一目录。";
+                        "\n\n请确认 assets/sprites、assets/layers/idle-v1、assets/icons 和 dialogues.json 与程序在同一目录。";
                     MessageBox.Show(message, "牧濑红莉栖桌宠", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }

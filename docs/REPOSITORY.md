@@ -5,7 +5,7 @@
 - `src/`：程序源码。
 - `assets/`：运行立绘、七张待机图层、图层清单、可编辑底稿、提示词与说明。图片是项目原型素材，保留来源记录；本次整理没有替项目或角色素材新增授权许可证。
 - `tests/`、`tools/`：可重复执行的测试和素材处理工具源码。
-- `docs/`：验收记录与两份精选预览。原始桌面截图不随仓库提交。
+- `docs/`：素材说明、验收记录与精选预览。原始桌面截图不随仓库提交。
 - 根目录的构建/打包脚本、台词、程序清单、配置、README 和 Git 规则。
 
 ## 仅本机保留
@@ -21,7 +21,7 @@
 
 ## 仓库与版本
 
-公开仓库：[zhangchuancheng/Windows-Desktop-Pet-Kurisu](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu)，默认分支 `main`。第二版标记为 `v2.0.0`，变更见 [CHANGELOG.md](../CHANGELOG.md)。
+公开仓库：[zhangchuancheng/Windows-Desktop-Pet-Kurisu](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu)，默认分支 `main`。第二版标记为 `v2.0.0`；当前 main 另包含 2026-10-16 的拖拽动画、表情比例、嘟脸与图标更新，本次不新建标签或运行包，变更见 [CHANGELOG.md](../CHANGELOG.md)。
 
 提交作者使用 `zhangchuancheng` 及该 GitHub 账号的 noreply 邮箱。后续提交前检查本地身份与远程地址，避免将提交归属到其他账号：
 

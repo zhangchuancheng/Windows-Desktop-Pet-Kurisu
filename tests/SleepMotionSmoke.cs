@@ -145,7 +145,8 @@ namespace MakiseDesktopPet
                         Require((Pose)Read(pet,"pose")==new[]{Pose.PokeBlock,Pose.PokeFold,Pose.PokeCheek}[i%3],"Click cycle regressed");
                     }
                     Call(pet,"SetPose",Pose.Drag);
-                    Require(Same(Frame(pet),Pixels(assets.GetDrag(false))),"Sleep frame remained on drag");
+                    bool dragChanged;
+                    Require(Same(Frame(pet),Pixels(((DragAnimation)Read(pet,"dragAnimation")).Render(0,out dragChanged))),"Sleep frame remained on drag");
                     Require(!pet.Visible&&!((BubbleForm)Read(pet,"bubble")).Visible,"Background test showed a window");
                     Console.WriteLine("PASS: sleep entry/render loop, four sleep sizes, wake/idle/click/drag transitions; no shown windows.");
                 }

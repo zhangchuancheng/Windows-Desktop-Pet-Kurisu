@@ -28,6 +28,7 @@ namespace MakiseDesktopPet
         public sealed class Manifest
         {
             public int version { get; set; }
+            public int maxAdjustment { get; set; }
             public Dictionary<string, string> references { get; set; }
             public Profile[] profiles { get; set; }
         }
@@ -42,13 +43,15 @@ namespace MakiseDesktopPet
                 return string.Equals(BitConverter.ToString(hash.ComputeHash(stream)).Replace("-", ""), expected, StringComparison.OrdinalIgnoreCase);
         }
 
-        internal static ClickColorCalibration Load(string directory)
+        internal static ClickColorCalibration Load(string directory, string manifestName = "click-colors.json")
         {
-            string path = Path.Combine(directory, "click-colors.json");
+            string path = Path.Combine(directory, manifestName);
             if (!File.Exists(path)) return null;
             Manifest data = new JavaScriptSerializer().Deserialize<Manifest>(File.ReadAllText(path));
             if (data == null || data.version != 1 || data.references == null || data.profiles == null)
                 throw new InvalidDataException("Invalid click color calibration manifest.");
+            int limit = data.maxAdjustment == 0 ? 16 : data.maxAdjustment;
+            if (limit < 1 || limit > 48) throw new InvalidDataException("Invalid palette adjustment limit.");
             foreach (KeyValuePair<string, string> reference in data.references)
                 if (!Matches(Path.Combine(directory, reference.Key), reference.Value)) return null;
             foreach (Profile profile in data.profiles)
@@ -60,7 +63,7 @@ namespace MakiseDesktopPet
                     if (anchor.source == null || anchor.target == null || anchor.source.Length != 3 || anchor.target.Length != 3)
                         throw new InvalidDataException("Invalid RGB palette anchor.");
                     for (int c = 0; c < 3; c++)
-                        if (double.IsNaN(anchor.source[c]) || double.IsNaN(anchor.target[c]) || anchor.source[c] < 0 || anchor.source[c] > 255 || anchor.target[c] < 0 || anchor.target[c] > 255 || Math.Abs(anchor.source[c] - anchor.target[c]) > 16)
+                        if (double.IsNaN(anchor.source[c]) || double.IsNaN(anchor.target[c]) || anchor.source[c] < 0 || anchor.source[c] > 255 || anchor.target[c] < 0 || anchor.target[c] > 255 || Math.Abs(anchor.source[c] - anchor.target[c]) > limit)
                             throw new InvalidDataException("Click palette adjustment exceeds supported range.");
                 }
             }

@@ -13,7 +13,6 @@ namespace MakiseDesktopPet
     {
         private readonly Dictionary<Pose, Bitmap> originals = new Dictionary<Pose, Bitmap>();
         private readonly Dictionary<Pose, Bitmap> scaled = new Dictionary<Pose, Bitmap>();
-        private Bitmap dragMovingLeft;
         internal int Width { get; private set; }
         internal int Height { get; private set; }
 
@@ -51,8 +50,6 @@ namespace MakiseDesktopPet
 
         internal void Resize(int height)
         {
-            if (dragMovingLeft != null) dragMovingLeft.Dispose();
-            dragMovingLeft = null;
             foreach (Bitmap bitmap in scaled.Values)
                 bitmap.Dispose();
             scaled.Clear();
@@ -76,22 +73,12 @@ namespace MakiseDesktopPet
                 }
                 scaled.Add(item.Key, output);
             }
-            // The source drag pose has its legs trailing left (moving right).
-            dragMovingLeft = scaled[Pose.Drag].Clone(
-                new Rectangle(0, 0, Width, Height), PixelFormat.Format32bppPArgb);
-            dragMovingLeft.RotateFlip(RotateFlipType.RotateNoneFlipX);
         }
 
         internal Bitmap Get(Pose pose) { return scaled[pose]; }
-        internal Bitmap GetDrag(bool movingLeft)
-        {
-            return movingLeft ? dragMovingLeft : scaled[Pose.Drag];
-        }
 
         public void Dispose()
         {
-            if (dragMovingLeft != null) dragMovingLeft.Dispose();
-            dragMovingLeft = null;
             foreach (Bitmap bitmap in scaled.Values) bitmap.Dispose();
             foreach (Bitmap bitmap in originals.Values) bitmap.Dispose();
             scaled.Clear();

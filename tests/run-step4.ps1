@@ -4,7 +4,7 @@ $outputRoot = Join-Path $projectRoot 'test-artifacts'
 New-Item -ItemType Directory -Force -Path (Join-Path $outputRoot 'screenshots') | Out-Null
 $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 $sources = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src') -Filter '*.cs' | ForEach-Object FullName
-foreach ($testName in @('LayeredIdleSmoke', 'ClickArtSmoke', 'DialogueSmoke', 'RapidClickSmoke', 'SleepMotionSmoke', 'Step4Acceptance')) {
+foreach ($testName in @('LayeredIdleSmoke', 'ClickArtSmoke', 'DialogueSmoke', 'RapidClickSmoke', 'DragAnimationSmoke', 'SleepMotionSmoke', 'Step4Acceptance')) {
     $target = Join-Path $outputRoot ($testName + '.exe')
     $testSource = Join-Path $PSScriptRoot ($testName + '.cs')
     & $compiler /nologo /target:exe /optimize+ "/main:MakiseDesktopPet.$testName" "/out:$target" `

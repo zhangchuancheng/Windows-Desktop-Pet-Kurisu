@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
@@ -14,7 +12,6 @@ namespace MakiseDesktopPet
         private const int SleepAfterMs = 180000;
         private const int BubbleDurationMs = 5000;
         private const int DragThresholdPx = 6;
-        private const int DragDirectionThresholdPx = 4;
         private const int RapidReleaseMs = 1200;
         private static readonly Pose[] ClickPoses =
             { Pose.PokeBlock, Pose.PokeFold, Pose.PokeCheek };
@@ -33,6 +30,7 @@ namespace MakiseDesktopPet
         private readonly Queue<long> recentClicks = new Queue<long>();
         private readonly PetMotion motion = new PetMotion();
         private readonly SleepAnimation sleepAnimation = new SleepAnimation();
+        private readonly DragAnimation dragAnimation;
         private readonly LayeredIdleAnimation layeredIdle;
 
         private Pose pose = Pose.Idle;
@@ -40,8 +38,7 @@ namespace MakiseDesktopPet
         private bool sleeping;
         private bool pressed;
         private bool dragging;
-        private bool dragMovingLeft;
-        private int dragDirectionAnchorX;
+        private long dragStarted;
         private int baseX;
         private int baseY;
         private Point pressPoint;
@@ -66,6 +63,7 @@ namespace MakiseDesktopPet
             settingsStore = new SettingsStore();
             settings = settingsStore.Load();
             sprites = new SpriteAssets(System.IO.Path.Combine(directory, "assets", "sprites"), settings.Height);
+            dragAnimation = new DragAnimation(System.IO.Path.Combine(directory, "assets", "sprites"), sprites.Width, sprites.Height);
             layeredIdle = new LayeredIdleAnimation(System.IO.Path.Combine(directory, "assets", "layers", "idle-v1"), settings.Height);
             dialogues = new Dialogues(System.IO.Path.Combine(directory, "dialogues.json"));
             bubble = new BubbleForm();
@@ -88,7 +86,8 @@ namespace MakiseDesktopPet
 
             petMenu = BuildPetMenu();
             trayMenu = BuildTrayMenu();
-            trayIcon = CreateTrayIcon();
+            trayIcon = CreateTrayIcon(directory);
+            Icon = trayIcon;
             tray = new NotifyIcon();
             tray.Icon = trayIcon;
             tray.Text = "牧濑红莉栖桌宠";
@@ -184,22 +183,10 @@ namespace MakiseDesktopPet
             return menu;
         }
 
-        private static Icon CreateTrayIcon()
+        private static Icon CreateTrayIcon(string directory)
         {
-            using (Bitmap bitmap = new Bitmap(32, 32, PixelFormat.Format32bppArgb))
-            using (Graphics graphics = Graphics.FromImage(bitmap))
-            using (SolidBrush background = new SolidBrush(Color.FromArgb(153, 82, 77)))
-            using (SolidBrush ink = new SolidBrush(Color.White))
-            using (Font font = new Font("Segoe UI", 18, FontStyle.Bold, GraphicsUnit.Pixel))
-            {
-                graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                graphics.Clear(Color.Transparent);
-                graphics.FillEllipse(background, 1, 1, 30, 30);
-                graphics.DrawString("K", font, ink, new PointF(7, 5));
-                IntPtr handle = bitmap.GetHicon();
-                try { return (Icon)Icon.FromHandle(handle).Clone(); }
-                finally { NativeMethods.DestroyIcon(handle); }
-            }
+            string path = System.IO.Path.Combine(directory, "assets", "icons", "app.ico");
+            return new Icon(path, SystemInformation.SmallIconSize);
         }
 
         protected override void OnMouseDown(MouseEventArgs e)
@@ -210,8 +197,6 @@ namespace MakiseDesktopPet
             pressed = true;
             dragging = false;
             pressPoint = PhysicalMousePosition();
-            dragMovingLeft = false;
-            dragDirectionAnchorX = pressPoint.X;
             pressBase = new Point(baseX, baseY);
             Capture = true;
             if (pose == Pose.Blink)
@@ -244,13 +229,11 @@ namespace MakiseDesktopPet
                 motion.CancelRecoil();
                 bubble.Hide();
                 bubbleUntil = 0;
-                UpdateDragDirection(pointer.X);
                 SetPose(Pose.Drag);
             }
             if (dragging)
             {
                 Interact();
-                UpdateDragDirection(pointer.X);
                 baseX = pressBase.X + dx;
                 baseY = pressBase.Y + dy;
                 ClampToVisibleScreen();
@@ -258,33 +241,20 @@ namespace MakiseDesktopPet
             }
         }
 
-        private void UpdateDragDirection(int pointerX)
-        {
-            bool previous = dragMovingLeft;
-            int delta = pointerX - dragDirectionAnchorX;
-            if (delta <= -DragDirectionThresholdPx)
-                dragMovingLeft = true;
-            else if (delta >= DragDirectionThresholdPx)
-                dragMovingLeft = false;
-
-            // Track the latest turning point, so reversing does not require
-            // crossing the original grab point. Ignore small mouse jitter.
-            if (previous != dragMovingLeft ||
-                (dragMovingLeft && pointerX < dragDirectionAnchorX) ||
-                (!dragMovingLeft && pointerX > dragDirectionAnchorX))
-                dragDirectionAnchorX = pointerX;
-
-            if (previous != dragMovingLeft && pose == Pose.Drag)
-                SetFrame(CurrentFrame());
-        }
-
         private Bitmap CurrentFrame()
         {
-            return pose == Pose.Drag ? sprites.GetDrag(dragMovingLeft) : sprites.Get(pose);
+            return sprites.Get(pose);
         }
 
         private void RenderMotion(long now, bool force)
         {
+            if (pose == Pose.Drag)
+            {
+                bool dragChanged;
+                Bitmap dragFrame = dragAnimation.Render(now - dragStarted, out dragChanged);
+                if (dragChanged || force) SetFrame(dragFrame);
+                return;
+            }
             if (pose == Pose.Idle || pose == Pose.Blink)
             {
                 int eyes = pose == Pose.Blink ? LayeredIdleAnimation.EyeForBlink(now, blinkStarted, blinkUntil) : 0;
@@ -418,6 +388,7 @@ namespace MakiseDesktopPet
             }
             if (next == Pose.Idle && pose != Pose.Blink) layeredIdle.Enter(clock.ElapsedMilliseconds);
             if (next == Pose.Sleep) sleepStarted = clock.ElapsedMilliseconds;
+            if (next == Pose.Drag) dragStarted = clock.ElapsedMilliseconds;
             pose = next;
             RenderMotion(clock.ElapsedMilliseconds, true);
         }
@@ -481,7 +452,7 @@ namespace MakiseDesktopPet
                 }
             }
 
-            if (Visible && !dragging) RenderMotion(now, false);
+            if (Visible) RenderMotion(now, false);
         }
 
         private void ChangeDialogue()
@@ -571,6 +542,7 @@ namespace MakiseDesktopPet
             motion.Reset();
             sleepAnimation.Reset();
             sprites.Resize(height);
+            dragAnimation.Resize(sprites.Width, sprites.Height);
             layeredIdle.Resize(height);
             RenderMotion(clock.ElapsedMilliseconds, true);
             ClampToVisibleScreen();
@@ -653,6 +625,7 @@ namespace MakiseDesktopPet
             timer.Dispose();
             motion.Dispose();
             sleepAnimation.Dispose();
+            dragAnimation.Dispose();
             layeredIdle.Dispose();
             sprites.Dispose();
             base.OnFormClosed(e);

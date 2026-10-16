@@ -1,0 +1,149 @@
+{
+  "version": 1,
+  "maxAdjustment": 48,
+  "references": {
+    "../layers/idle-v1/body.png": "0EE80DCF0EA6644F0B85C4CB45CBBA5B483C729E1274E6A01AD4C57824960639",
+    "../layers/idle-v1/eyes-open.png": "005357E307D09D8D0E33DBB0F82C624E34439CABFF501CDEE5EFBF22A2D80AE0",
+    "../layers/idle-v1/hair-back-left.png": "BF6B9D8795B749B2D7823B6B724B96339556D7C6FE2828FD4E72ECAE41E94ED7",
+    "../layers/idle-v1/hair-back-right.png": "CF9BF8D0C23C14142FC4532939D8E7C873E7714D816A021C38ABEE9FB15AB628",
+    "../layers/idle-v1/head-base.png": "6A2A6197E8CDD0A6B4D1A61CAB95FA6669EE166B9074F65641FCA6E2B1DE525E"
+  },
+  "profiles": [
+    {
+      "file": "drag-sheet.png",
+      "sha256": "3DF5799266859771E1DC5F168C222207A555FFEA764F061FB3BEEA4E6F48BF07",
+      "anchors": [
+        {
+          "material": "hair",
+          "source": [
+            153.0,
+            68.0,
+            51.0
+          ],
+          "target": [
+            162.0,
+            60.0,
+            46.0
+          ]
+        },
+        {
+          "material": "hair_shadow",
+          "source": [
+            113.0,
+            44.0,
+            30.0
+          ],
+          "target": [
+            111.0,
+            31.0,
+            25.0
+          ]
+        },
+        {
+          "material": "hair_highlight",
+          "source": [
+            207.0,
+            125.0,
+            97.0
+          ],
+          "target": [
+            224.0,
+            129.0,
+            99.0
+          ]
+        },
+        {
+          "material": "coat",
+          "source": [
+            187.0,
+            160.0,
+            125.0
+          ],
+          "target": [
+            183.0,
+            143.0,
+            106.0
+          ]
+        },
+        {
+          "material": "trousers",
+          "source": [
+            60.0,
+            65.0,
+            76.0
+          ],
+          "target": [
+            53.0,
+            54.0,
+            63.0
+          ]
+        },
+        {
+          "material": "skin",
+          "source": [
+            252.0,
+            241.0,
+            233.0
+          ],
+          "target": [
+            252.0,
+            236.0,
+            225.0
+          ]
+        },
+        {
+          "material": "ink",
+          "source": [
+            9.0,
+            9.0,
+            24.0
+          ],
+          "target": [
+            8.0,
+            13.0,
+            48.0
+          ]
+        },
+        {
+          "material": "white",
+          "source": [
+            252.0,
+            251.0,
+            251.0
+          ],
+          "target": [
+            252.0,
+            251.0,
+            251.0
+          ]
+        },
+        {
+          "material": "tie",
+          "source": [
+            184.0,
+            29.0,
+            29.0
+          ],
+          "target": [
+            175.0,
+            16.0,
+            24.0
+          ]
+        },
+        {
+          "material": "eye",
+          "source": [
+            156.0,
+            161.0,
+            226.0
+          ],
+          "target": [
+            143.0,
+            149.0,
+            219.0
+          ]
+        }
+      ]
+    }
+  ]
+}

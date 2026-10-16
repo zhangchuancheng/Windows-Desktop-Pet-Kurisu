@@ -64,7 +64,6 @@ namespace MakiseDesktopPet
                 g.DrawString(stage + "   " + (timeline.ElapsedMilliseconds/1000.0).ToString("F1") + " 秒",font,ink,12,27);
                 Bitmap character = Frame(pet);
                 int xPet = 100, yPet = 398-character.Height;
-                if ((Pose)Read(pet,"pose") == Pose.Drag) xPet += (bool)Read(pet,"dragMovingLeft") ? -24 : 24;
                 g.DrawImage(character,new Rectangle(xPet,yPet,character.Width,character.Height),0,0,character.Width,character.Height,GraphicsUnit.Pixel);
                 BubbleForm bubble = (BubbleForm)Read(pet,"bubble");
                 if ((long)Read(pet,"bubbleUntil")>Now && Frame(bubble)!=null)
@@ -169,17 +168,10 @@ namespace MakiseDesktopPet
                 Pump(1400,50);
             }
             int clickIndex=(int)Read(pet,"nextClickPose");
-            Write(pet,"pressed",true); Write(pet,"dragging",true); Write(pet,"dragDirectionAnchorX",100);
+            Write(pet,"pressed",true); Write(pet,"dragging",true);
             Write(pet,"bubbleUntil",0L); Call(pet,"SetPose",Pose.Drag);
-            int[] positions={90,70,72,74,80,80,77,76};
-            bool[] expected={true,true,true,false,false,false,false,true};
-            for(int i=0;i<positions.Length;i++)
-            {
-                Call(pet,"UpdateDragDirection",positions[i]);
-                Check((bool)Read(pet,"dragMovingLeft")==expected[i],"drag direction / reversal / jitter "+i);
-            }
-            stage="向左拖动姿态"; Pump(1000,50);
-            Call(pet,"UpdateDragDirection",110); stage="向右拖动姿态"; Pump(1000,50);
+            stage="悬空扑腾拖动"; Pump(2000,50);
+            Check((Pose)Read(pet,"pose")==Pose.Drag,"drag animation remains active while held");
             stage="松开恢复待机"; Call(pet,"OnMouseUp",new MouseEventArgs(MouseButtons.Left,1,0,0,0));
             Check((int)Read(pet,"nextClickPose")==clickIndex && (Pose)Read(pet,"pose")==Pose.Idle,"drag release does not advance click cycle");
             long waitStart=(long)Read(pet,"lastInteraction");
