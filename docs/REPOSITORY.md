@@ -21,7 +21,7 @@
 
 ## 仓库与版本
 
-公开仓库：[zhangchuancheng/Windows-Desktop-Pet-Kurisu](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu)，默认分支 `main`。第二版标记为 `v2.0.0`；当前 main 另包含 2026-10-16 的拖拽动画、表情比例、嘟脸与图标更新，本次不新建标签或运行包，变更见 [CHANGELOG.md](../CHANGELOG.md)。
+公开仓库：[zhangchuancheng/Windows-Desktop-Pet-Kurisu](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu)，默认分支 `main`。当前版本为 `v2.1.0`，包含拖拽动画、表情比例、嘟脸与图标更新，并提供 Windows 运行包和源码包，变更见 [CHANGELOG.md](../CHANGELOG.md)。
 
 提交作者使用 `zhangchuancheng` 及该 GitHub 账号的 noreply 邮箱。后续提交前检查本地身份与远程地址，避免将提交归属到其他账号：
 
@@ -37,7 +37,7 @@ git commit -m "Describe the change"
 git push origin main
 ```
 
-`origin` 已配置，不需要重新添加。v2.0.0 发布源码与更新说明，不附加新的运行包；之前的 ZIP 不包含第二版改动。需要运行时从源码执行 `build.ps1`；之后明确需要打包时再运行 `package.ps1`。
+`origin` 已配置，不需要重新添加。v2.1.0 的运行包、源码包和 SHA-256 校验文件以 GitHub Release 附件提供。ZIP 保留在本机 releases/，不加入 Git 历史；需要更新附件时重新执行 package.ps1。
 
 ## 首次整理验证（2026-10-15，历史记录）
 

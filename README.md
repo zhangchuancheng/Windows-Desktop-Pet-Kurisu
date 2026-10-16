@@ -4,7 +4,11 @@
 
 透明背景、无边框的 Windows 桌面小挂件：会眨眼、呼吸、回应点击，也会在安静时打瞌睡。日常运行完全离线，无需登录、管理员权限或付费 API。
 
-**当前 `main` 包含 2026-10-16 的后续更新，功能和素材已比 v2.0.0 发布版更新。** 获取当前效果请下载本分支源码并构建；现有 Release 和旧 ZIP 不包含本次更新。本次提交不新增版本标签或运行包。
+**当前版本：v2.1.0。** 普通用户请下载 Windows 运行包，完整解压后双击 `MakiseDesktopPet.exe`，无需编译。
+
+[下载 Windows 运行包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/download/v2.1.0/MakiseDesktopPet-Windows.zip) · [发布页面与源码包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/tag/v2.1.0)
+
+请保留程序旁的 `assets/`、`dialogues.json` 和配置文件，不要只移动 EXE。运行包内的“使用说明.txt”包含启动、操作、更新和常见问题。
 
 ![当前待机与点击姿态](docs/media/click-poses.png)
 
@@ -29,7 +33,7 @@
 
 完整记录见 [CHANGELOG.md](CHANGELOG.md)。保留的功能包括分层待机、动态 ZZZ 睡眠、60 条原创中文台词、置顶/置底、托盘与设置保存。
 
-## 快速开始
+## 从源码构建
 
 环境：**Windows 10/11、.NET Framework 4.8、Windows PowerShell**。无需安装 .NET SDK 或 Python。
 
@@ -92,7 +96,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 
 ## 手动打包
 
-开发期间无需打包。本次只提交源码和文档。需要可解压运行的 ZIP 时，在退出桌宠后执行：
+开发期间无需反复打包。v2.1.0 已提供运行包与源码包；自行制作 ZIP 时，在退出桌宠后执行：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\package.ps1

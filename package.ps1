@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 & (Join-Path $PSScriptRoot 'build.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
 $releaseDir = Join-Path $PSScriptRoot 'releases'
@@ -8,6 +8,7 @@ $dist = Join-Path $PSScriptRoot 'dist'
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'README.md') -Destination $dist -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'CHANGELOG.md') -Destination $dist -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'docs') -Destination $dist -Recurse -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'docs\QUICKSTART.zh-CN.txt') -Destination (Join-Path $dist '使用说明.txt') -Force
 $contents = @(
     (Join-Path $dist 'MakiseDesktopPet.exe'),
     (Join-Path $dist 'MakiseDesktopPet.exe.config'),
@@ -15,6 +16,7 @@ $contents = @(
     (Join-Path $dist 'assets'),
     (Join-Path $dist 'README.md'),
     (Join-Path $dist 'CHANGELOG.md'),
+    (Join-Path $dist '使用说明.txt'),
     (Join-Path $dist 'docs')
 )
 Compress-Archive -Path $contents -DestinationPath $package -Force
