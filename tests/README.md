@@ -10,7 +10,7 @@ powershell -ExecutionPolicy Bypass -File .\tests\run-step4.ps1
 
 | 文件 | 作用 |
 | --- | --- |
-| SizeSliderSmoke.cs | 后台检查菜单绘制、角色大小滑条、界面 80%/150% 缩放、旧版 120% 设置迁移、设置保存与焦点；可选 `--visible` 检查弹出位置、实际画面与缩放后的点击区域 |
+| SizeSliderSmoke.cs | 后台检查菜单绘制、“聊天偏好”入口、角色大小滑条、界面 80%/150% 缩放、旧版 120% 设置迁移、设置保存与焦点；可选 `--visible` 检查弹出位置、实际画面与缩放后的点击区域 |
 | LayeredIdleSmoke.cs | 四尺寸分层图、固定脚部、alpha 和眨眼阶段检查 |
 | GazeSmoke.cs | 四尺寸追视、透明边缘、固定脚部、恢复原色及指针转向平滑检查；另外验证八个极端方向、十六个中间方向不拉动眉毛或侧发，生成 `test-artifacts/screenshots/gaze-preview.png` 和 `gaze-angle-grid.png` |
 | ClickArtSmoke.cs | 三张普通点击及叉手姿态的颜色校准、alpha 不变、替换素材不误校准及四尺寸透明边缘检查 |
@@ -22,7 +22,9 @@ powershell -ExecutionPolicy Bypass -File .\tests\run-step4.ps1
 | MotionSmoke.cs | 早期实际窗口回归，执行时会显示测试角色，短暂使用鼠标捕获并备份/恢复用户配置 |
 | DragAnimationSmoke.cs | 七种角色尺寸（100–500 像素，含 355 像素）下单图拖拽形变的静止一致性、与待机及三张点击图的可见轮廓对齐、双向响应、停止回正、透明边缘和隐藏窗口状态检查；图片输出在 `test-artifacts/drag-warp-runtime/` |
 | check-drag-colors.py | 运行 DragAnimationSmoke 后检查拖拽底稿十类 RGB 配色、alpha 和素材指纹，需 Pillow、NumPy，只读素材 |
-| run-step4.ps1 | 默认入口，运行分层、追视、点击素材、台词、连续点击、拖拽动画、睡眠呼吸和第 4 步八项后台检查 |
+| run-step4.ps1 | 默认入口，运行菜单、分层、追视、点击素材、台词、连续点击、拖拽动画、睡眠呼吸和第 4 步九项后台检查 |
+| ChatSmoke.cs | 可选本机模型联通检查，验证偏好持久化、紧凑输入面板的 80%/150% 缩放、提示词和回复回退，并生成 `test-artifacts/chat-preview.png`、`chat-preferences-preview.png`；需要已启动 Ollama 和 `qwen3:4b-instruct` |
+| ChatContextSmoke.cs | 连续轮次超出短期历史后，检查用户明确事实仍进入模型请求并可被模型召回；同时检查保存偏好后的会话清空。需要本机 Ollama 与模型 |
 | encode-step4.py | 把后台测试帧编码为 GIF，需要 Python 和 Pillow |
 
 可选预览编码：
@@ -32,6 +34,8 @@ python .\tests\encode-step4.py
 ```
 
 GIF 仅为程序渲染帧预览，不是真实鼠标录屏；完整测试边界见 [验收记录](../docs/TESTING.md)。`docs/media/` 中的精选预览不会被测试自动覆盖，需要确认后手动更新。
+
+本地试聊连接检查：`powershell -ExecutionPolicy Bypass -File .\tests\run-step4.ps1 ChatSmoke`。它会向本机模型发送两句测试输入，不改变正式桌宠的设置。
 
 ## 当前配色辅助检查的已知偏差
 

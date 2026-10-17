@@ -30,12 +30,14 @@ namespace MakiseDesktopPet
                     string directory = AppDomain.CurrentDomain.BaseDirectory;
                     PetForm pet = new PetForm(directory);
                     if (Array.IndexOf(args, "--preview-sleep") >= 0) pet.EnterSleep();
+                    if (Array.IndexOf(args, "--preview-chat") >= 0)
+                        pet.Shown += delegate { pet.OpenChat(); };
                     Application.Run(pet);
                 }
                 catch (Exception error)
                 {
                     string message = "桌宠启动或运行时出错：\n" + error.Message +
-                        "\n\n请确认 assets/sprites、assets/layers/idle-v1、assets/icons 和 dialogues.json 与程序在同一目录。";
+                        "\n\n请确认 assets/sprites、assets/layers/idle-v1、assets/icons、dialogues.json 和 chat-persona.json 与程序在同一目录。";
                     MessageBox.Show(message, "牧濑红莉栖桌宠", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }

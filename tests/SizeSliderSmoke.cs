@@ -85,8 +85,18 @@ namespace MakiseDesktopPet
 
                 PetMenuPopup menu = (PetMenuPopup)Read(pet, "petMenu");
                 PetMenuCanvas canvas = menu.Canvas;
-                Require(menu.Items.Count == 1 && canvas.Width == 317 && canvas.Height == 415,
+                Require(menu.Items.Count == 1 && canvas.Width == 317 && canvas.Height == 502,
                     "Compact menu canvas should replace nested system menus");
+                Require(Call(canvas, "HitTest", new Point(70, 318)).ToString() ==
+                    "ChatPreferences", "Chat preferences should have a settings row");
+                using (PetMenuCanvas isolatedCanvas = new PetMenuCanvas())
+                {
+                    bool preferencesOpened = false;
+                    isolatedCanvas.ChatPreferencesSelected += delegate { preferencesOpened = true; };
+                    Click(isolatedCanvas, 70, 318);
+                    Require(preferencesOpened,
+                        "The chat preferences row should dispatch its menu action");
+                }
                 PetSettings settings = (PetSettings)Read(pet, "settings");
                 settings.UiScalePercent = 100;
                 settings.UiScaleVersion = PetSettings.CurrentUiScaleVersion;
@@ -129,7 +139,7 @@ namespace MakiseDesktopPet
                     store.Load().UiScalePercent == 150 &&
                     store.Load().UiScaleVersion == PetSettings.CurrentUiScaleVersion,
                     "UI scale should reach and save 150 percent without re-migration");
-                Require(canvas.Size == new Size(475, 623) && menu.Size == canvas.Size,
+                Require(canvas.Size == new Size(475, 752) && menu.Size == canvas.Size,
                     "Canvas, click area, and popup should scale together");
                 Require(pet.Height == 500, "UI scale must not change character height");
                 string large = Path.Combine(args[0], "test-artifacts", "screenshots", "pet-menu-150.png");
@@ -143,7 +153,7 @@ namespace MakiseDesktopPet
                     "UI scale must stop at 150 percent");
                 for (int i = 0; i < 7; i++) Click(canvas, 167, 239);
                 Require(canvas.SelectedUiScalePercent == 80 && settings.UiScalePercent == 80 &&
-                    store.Load().UiScalePercent == 80 && canvas.Size == new Size(253, 332),
+                    store.Load().UiScalePercent == 80 && canvas.Size == new Size(253, 401),
                     "UI scale should reach and save 80 percent with scaled click targets");
                 Click(canvas, 167, 239);
                 Require(canvas.SelectedUiScalePercent == 80,
@@ -186,7 +196,7 @@ namespace MakiseDesktopPet
                         capture.Save(zoomed, ImageFormat.Png);
                     }
                     Click(canvas, 167, 239);
-                    Require(settings.UiScalePercent == 100 && menu.Size == new Size(317, 415),
+                    Require(settings.UiScalePercent == 100 && menu.Size == new Size(317, 502),
                         "Visible menu should shrink back to its original size");
                     Call(canvas, "OnMouseDown", MouseAt(canvas, MouseButtons.Left, 1, 242, 116));
                     Call(canvas, "OnMouseMove", MouseAt(canvas, MouseButtons.Left, 0, 132, 116));
@@ -219,7 +229,7 @@ namespace MakiseDesktopPet
                         settings.UiScalePercent);
                     for (int i = 0; i < 5; i++) Click(canvas, 234, 239);
                     Pump(50);
-                    Require(menu.Visible && menu.Size == new Size(475, 623) &&
+                    Require(menu.Visible && menu.Size == new Size(475, 752) &&
                         work.Contains(menu.Bounds) && store.Load().UiScalePercent == 150,
                         "150 percent menu should stay visible near the screen corner");
                     string largeLive = Path.Combine(args[0], "test-artifacts", "screenshots",

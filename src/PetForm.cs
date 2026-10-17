@@ -20,6 +20,8 @@ namespace MakiseDesktopPet
         private readonly SpriteAssets sprites;
         private readonly Dialogues dialogues;
         private readonly BubbleForm bubble;
+        private readonly OllamaChatClient chatClient;
+        private readonly ChatForm chat;
         private readonly NotifyIcon tray;
         private readonly Icon trayIcon;
         private readonly PetMenuPopup petMenu;
@@ -57,6 +59,7 @@ namespace MakiseDesktopPet
         private long rapidCooldownUntil;
         private long rapidPoseUntil;
         private string bubbleText;
+        private bool bubbleFromChat;
         private BubblePlacement bubblePlacement;
 
         internal PetForm(string directory)
@@ -69,8 +72,11 @@ namespace MakiseDesktopPet
             layeredIdle = new LayeredIdleAnimation(System.IO.Path.Combine(directory, "assets", "layers", "idle-v1"), settings.Height);
             dialogues = new Dialogues(System.IO.Path.Combine(directory, "dialogues.json"));
             bubble = new BubbleForm();
+            chatClient = new OllamaChatClient(directory);
+            chat = new ChatForm(chatClient, ShowChatReply, InteractWithChat);
             TopMost = settings.TopMost;
             bubble.TopMost = settings.TopMost;
+            chat.TopMost = settings.TopMost;
 
             if (!settings.HasPosition)
             {
@@ -109,13 +115,15 @@ namespace MakiseDesktopPet
         {
             return new PetMenuPopup(
                 delegate(int height) { ApplySize(height); }, SaveSettings, ChangeLayer,
-                ChangeUiScale, ChangeDialogue, HideToTray, Close, KeepAtBottom);
+                ChangeUiScale, ChangeDialogue, OpenChat, OpenChatPreferences,
+                HideToTray, Close, KeepAtBottom);
         }
 
         private void ChangeUiScale(int percent)
         {
             if (settings.UiScalePercent == percent) return;
             settings.UiScalePercent = percent;
+            chat.ApplyUiScale(percent);
             SaveSettings();
         }
 
@@ -131,6 +139,7 @@ namespace MakiseDesktopPet
         {
             TopMost = settings.TopMost;
             bubble.TopMost = settings.TopMost;
+            chat.TopMost = settings.TopMost;
             KeepAtBottom();
         }
 
@@ -157,6 +166,8 @@ namespace MakiseDesktopPet
                 else RestoreFromTray();
             };
             menu.Items.Add(visibility);
+            menu.Items.Add("聊两句", null, delegate { OpenChat(); });
+            menu.Items.Add("聊天偏好", null, delegate { OpenChatPreferences(); });
             menu.Items.Add("退出", null, delegate { Close(); });
             menu.Opening += delegate { visibility.Text = Visible ? "隐藏" : "显示"; };
             return menu;
@@ -473,9 +484,71 @@ namespace MakiseDesktopPet
             ShowMessage(pose == Pose.Wake ? "wake" : "click");
         }
 
+        private void InteractWithChat()
+        {
+            Interact();
+            if (!sleeping) return;
+            sleeping = false;
+            SetPose(Pose.Wake);
+            poseUntil = clock.ElapsedMilliseconds + 850;
+            ScheduleBlink(clock.ElapsedMilliseconds);
+        }
+
+        internal void OpenChat()
+        {
+            if (!Visible) RestoreFromTray();
+            InteractWithChat();
+            chat.ShowNear(new Rectangle(Location, sprites.Get(Pose.Idle).Size),
+                settings.TopMost, settings.UiScalePercent);
+        }
+
+        private void OpenChatPreferences()
+        {
+            if (!Visible) RestoreFromTray();
+            InteractWithChat();
+            chat.HideChat();
+            try
+            {
+                using (ChatPreferencesForm editor = new ChatPreferencesForm(
+                    chatClient.GetPreferences(), settings.UiScalePercent,
+                    Screen.FromRectangle(Bounds).WorkingArea.Size))
+                {
+                    editor.TopMost = settings.TopMost;
+                    if (editor.ShowDialog(this) != DialogResult.OK) return;
+                    try
+                    {
+                        chatClient.SavePreferences(editor.Value);
+                        ShowChatReply("偏好记下了。接下来按新设定聊。");
+                    }
+                    catch (Exception error)
+                    {
+                        MessageBox.Show(this, "保存聊天偏好失败：" + error.Message,
+                            "桌宠设置", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+            finally
+            {
+                KeepAtBottom();
+            }
+        }
+
+        private void ShowChatReply(string answer)
+        {
+            InteractWithChat();
+            bubbleText = answer;
+            bubbleFromChat = true;
+            bubbleUntil = clock.ElapsedMilliseconds + Math.Min(18000,
+                Math.Max(8000, answer.Length * 160));
+            LayoutChatBubble();
+            if (Visible && !bubble.Visible) bubble.Show();
+            KeepAtBottom();
+        }
+
         private void ShowMessage(string category)
         {
             bubbleText = category == "click" ? dialogues.PickClick(pose) : dialogues.Pick(category);
+            bubbleFromChat = false;
             bubbleUntil = clock.ElapsedMilliseconds + BubbleDurationMs;
             LayoutBubble();
             if (Visible && !bubble.Visible) bubble.Show();
@@ -506,6 +579,32 @@ namespace MakiseDesktopPet
 
             bubble.Render(bubbleText, bubblePlacement);
             PositionBubble();
+        }
+
+        private void LayoutChatBubble()
+        {
+            if (!chat.Visible)
+            {
+                LayoutBubble();
+                return;
+            }
+            Rectangle pet = new Rectangle(Location, sprites.Get(Pose.Idle).Size);
+            Rectangle work = Screen.FromRectangle(pet).WorkingArea;
+            bubble.Render(bubbleText, BubblePlacement.Below);
+            if (pet.Bottom - 7 + bubble.Height <= work.Bottom)
+            {
+                bubblePlacement = BubblePlacement.Below;
+                PositionBubble();
+                return;
+            }
+            bubble.Render(bubbleText, BubblePlacement.Above);
+            if (pet.Top - bubble.Height + 7 >= work.Top)
+            {
+                bubblePlacement = BubblePlacement.Above;
+                PositionBubble();
+                return;
+            }
+            LayoutBubble();
         }
 
         private void PositionBubble()
@@ -556,7 +655,12 @@ namespace MakiseDesktopPet
             RenderMotion(clock.ElapsedMilliseconds, true);
             ClampToVisibleScreen();
             Location = new Point(baseX, baseY);
-            if (bubble.Visible) LayoutBubble();
+            chat.KeepVisible();
+            if (bubble.Visible)
+            {
+                if (bubbleFromChat) LayoutChatBubble();
+                else LayoutBubble();
+            }
             KeepAtBottom();
             return true;
         }
@@ -585,7 +689,12 @@ namespace MakiseDesktopPet
             }
             ClampToVisibleScreen();
             Location = new Point(baseX, baseY);
-            if (bubble.Visible) LayoutBubble();
+            chat.KeepVisible();
+            if (bubble.Visible)
+            {
+                if (bubbleFromChat) LayoutChatBubble();
+                else LayoutBubble();
+            }
             SaveSettings();
             KeepAtBottom();
         }
@@ -601,6 +710,7 @@ namespace MakiseDesktopPet
         private void HideToTray()
         {
             Interact();
+            chat.HideChat();
             recentClicks.Clear();
             if (pose == Pose.Rapid) SetPose(Pose.Idle);
             bubble.Hide();
@@ -629,6 +739,8 @@ namespace MakiseDesktopPet
             trayIcon.Dispose();
             petMenu.Dispose();
             trayMenu.Dispose();
+            chat.Dispose();
+            chatClient.Dispose();
             bubble.Close();
             bubble.Dispose();
             timer.Dispose();

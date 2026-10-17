@@ -16,7 +16,9 @@ namespace MakiseDesktopPet
         private bool sizeChanged;
 
         internal PetMenuPopup(Action<int> previewSize, Action saveSize, Action<bool> changeLayer,
-            Action<int> changeUiScale, Action changeDialogue, Action hidePet, Action exitPet,
+            Action<int> changeUiScale, Action changeDialogue, Action openChat,
+            Action openChatPreferences,
+            Action hidePet, Action exitPet,
             Action closed)
         {
             this.previewSize = previewSize;
@@ -50,6 +52,8 @@ namespace MakiseDesktopPet
             };
             canvas.HeightCommitted += CommitSize;
             canvas.PhraseSelected += delegate { CompleteAction(changeDialogue); };
+            canvas.ChatSelected += delegate { CompleteAction(openChat); };
+            canvas.ChatPreferencesSelected += delegate { CompleteAction(openChatPreferences); };
             canvas.HideSelected += delegate { CompleteAction(hidePet); };
             canvas.ExitSelected += delegate { CompleteAction(exitPet); };
             canvas.LayerSelected += delegate(bool topmost)
@@ -139,10 +143,11 @@ namespace MakiseDesktopPet
 
     internal sealed class PetMenuCanvas : Control
     {
-        private enum Target { None, Phrase, Slider, Top, Bottom, UiSmaller, UiLarger, Hide, Exit }
+        private enum Target { None, Phrase, Slider, Top, Bottom, UiSmaller, UiLarger,
+            Chat, ChatPreferences, Hide, Exit }
 
         private const int BaseWidth = 264;
-        private const int BaseHeight = 346;
+        private const int BaseHeight = 418;
 
         private static readonly Color Cream = Color.FromArgb(252, 250, 246);
         private static readonly Color Ink = Color.FromArgb(63, 59, 58);
@@ -166,6 +171,8 @@ namespace MakiseDesktopPet
         internal event Action<bool> LayerSelected;
         internal event Action<int> UiScaleSelected;
         internal event Action PhraseSelected;
+        internal event Action ChatSelected;
+        internal event Action ChatPreferencesSelected;
         internal event Action HideSelected;
         internal event Action ExitSelected;
 
@@ -251,8 +258,10 @@ namespace MakiseDesktopPet
                         ? Target.UiLarger : Target.None;
                 return Target.None;
             }
-            if (point.Y >= 264 && point.Y < 300) return Target.Hide;
-            if (point.Y >= 300 && point.Y < 336) return Target.Exit;
+            if (point.Y >= 264 && point.Y < 300) return Target.Chat;
+            if (point.Y >= 300 && point.Y < 336) return Target.ChatPreferences;
+            if (point.Y >= 336 && point.Y < 372) return Target.Hide;
+            if (point.Y >= 372 && point.Y < 408) return Target.Exit;
             return Target.None;
         }
 
@@ -299,6 +308,9 @@ namespace MakiseDesktopPet
             }
             if (activated == Target.None || activated != HitTest(LogicalPoint(e.Location))) return;
             if (activated == Target.Phrase && PhraseSelected != null) PhraseSelected();
+            else if (activated == Target.Chat && ChatSelected != null) ChatSelected();
+            else if (activated == Target.ChatPreferences && ChatPreferencesSelected != null)
+                ChatPreferencesSelected();
             else if (activated == Target.UiSmaller) StepUiScale(-1);
             else if (activated == Target.UiLarger) StepUiScale(1);
             else if (activated == Target.Hide && HideSelected != null) HideSelected();
@@ -358,10 +370,14 @@ namespace MakiseDesktopPet
             DrawRule(g, 216);
             DrawUiScale(g);
             DrawRule(g, 259);
-            DrawRow(g, Target.Hide, 264, "隐藏到托盘");
-            DrawTrayIcon(g, 24, 275);
-            DrawRow(g, Target.Exit, 300, "退出桌宠");
-            DrawPowerIcon(g, 24, 312);
+            DrawRow(g, Target.Chat, 264, "聊两句");
+            DrawSpeechIcon(g, 24, 275);
+            DrawRow(g, Target.ChatPreferences, 300, "聊天偏好");
+            DrawPreferencesIcon(g, 24, 311);
+            DrawRow(g, Target.Hide, 336, "隐藏到托盘");
+            DrawTrayIcon(g, 24, 347);
+            DrawRow(g, Target.Exit, 372, "退出桌宠");
+            DrawPowerIcon(g, 24, 384);
         }
 
         private void DrawUiScale(Graphics g)
@@ -474,6 +490,22 @@ namespace MakiseDesktopPet
                     new Point(x + 1, y + 8) });
                 g.DrawLine(pen, x - 2, y + 2, x + 5, y + 2);
                 g.DrawLine(pen, x - 2, y + 5, x + 3, y + 5);
+            }
+        }
+
+        private static void DrawPreferencesIcon(Graphics g, int x, int y)
+        {
+            using (Pen pen = new Pen(Color.FromArgb(158, 119, 116), 1.3f))
+            using (SolidBrush background = new SolidBrush(Cream))
+            {
+                int[] centers = { x - 2, x + 3, x - 1 };
+                for (int row = 0; row < centers.Length; row++)
+                {
+                    int lineY = y - 4 + row * 5;
+                    g.DrawLine(pen, x - 6, lineY, x + 7, lineY);
+                    g.FillEllipse(background, centers[row] - 2, lineY - 2, 4, 4);
+                    g.DrawEllipse(pen, centers[row] - 2, lineY - 2, 4, 4);
+                }
             }
         }
 

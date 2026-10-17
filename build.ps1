@@ -31,15 +31,22 @@ $sources = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src') -Filter '*.
 $output = Join-Path $dist 'MakiseDesktopPet.exe'
 $manifest = Join-Path $projectRoot 'app.manifest'
 $appIcon = Join-Path $projectRoot 'assets\icons\app.ico'
+$persona = Join-Path $projectRoot 'chat-persona.json'
 if (-not (Test-Path -LiteralPath $appIcon)) { throw 'Missing application icon: assets/icons/app.ico' }
+if (-not (Test-Path -LiteralPath $persona)) { throw 'Missing chat persona: chat-persona.json' }
 & $compiler /nologo /target:winexe /platform:anycpu /optimize+ /out:$output `
     "/win32manifest:$manifest" `
     "/win32icon:$appIcon" `
     /reference:System.dll /reference:System.Core.dll /reference:System.Drawing.dll `
-    /reference:System.Windows.Forms.dll /reference:System.Web.Extensions.dll @sources
+    /reference:System.Windows.Forms.dll /reference:System.Web.Extensions.dll `
+    /reference:System.Net.Http.dll @sources
 if ($LASTEXITCODE -ne 0) { throw 'Desktop pet compilation failed.' }
 
 Copy-Item -LiteralPath (Join-Path $projectRoot 'dialogues.json') -Destination $dist -Force
+Copy-Item -LiteralPath $persona -Destination $dist -Force
+foreach ($chatSetupFile in @('Install-Chat-Model.cmd', 'setup-chat.ps1')) {
+    Copy-Item -LiteralPath (Join-Path $projectRoot $chatSetupFile) -Destination $dist -Force
+}
 Copy-Item -LiteralPath (Join-Path $projectRoot 'App.config') -Destination (Join-Path $dist 'MakiseDesktopPet.exe.config') -Force
 $distIcons = Join-Path $dist 'assets\icons'
 New-Item -ItemType Directory -Force -Path $distIcons | Out-Null

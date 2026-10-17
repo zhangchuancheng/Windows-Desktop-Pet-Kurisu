@@ -13,6 +13,9 @@ $contents = @(
     (Join-Path $dist 'MakiseDesktopPet.exe'),
     (Join-Path $dist 'MakiseDesktopPet.exe.config'),
     (Join-Path $dist 'dialogues.json'),
+    (Join-Path $dist 'chat-persona.json'),
+    (Join-Path $dist 'Install-Chat-Model.cmd'),
+    (Join-Path $dist 'setup-chat.ps1'),
     (Join-Path $dist 'assets'),
     (Join-Path $dist 'README.md'),
     (Join-Path $dist 'CHANGELOG.md'),
@@ -36,6 +39,9 @@ $sourceContents = @(
     (Join-Path $PSScriptRoot 'App.config'),
     (Join-Path $PSScriptRoot 'app.manifest'),
     (Join-Path $PSScriptRoot 'dialogues.json'),
+    (Join-Path $PSScriptRoot 'chat-persona.json'),
+    (Join-Path $PSScriptRoot 'Install-Chat-Model.cmd'),
+    (Join-Path $PSScriptRoot 'setup-chat.ps1'),
     (Join-Path $PSScriptRoot 'README.md'),
     (Join-Path $PSScriptRoot 'CHANGELOG.md')
 )

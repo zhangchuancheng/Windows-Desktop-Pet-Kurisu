@@ -12,7 +12,8 @@ foreach ($testName in $Tests) {
     $testSource = Join-Path $PSScriptRoot ($testName + '.cs')
     & $compiler /nologo /target:exe /optimize+ "/main:MakiseDesktopPet.$testName" "/out:$target" `
         /reference:System.dll /reference:System.Core.dll /reference:System.Drawing.dll `
-        /reference:System.Windows.Forms.dll /reference:System.Web.Extensions.dll @sources $testSource
+        /reference:System.Windows.Forms.dll /reference:System.Web.Extensions.dll `
+        /reference:System.Net.Http.dll @sources $testSource
     if ($LASTEXITCODE -ne 0) { throw "Failed to compile $testName" }
     & $target $projectRoot | Tee-Object -FilePath (Join-Path $outputRoot ("step4-$testName.log"))
     if ($LASTEXITCODE -ne 0) { throw "$testName failed; inspect the log." }
