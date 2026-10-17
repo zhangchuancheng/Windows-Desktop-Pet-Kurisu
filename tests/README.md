@@ -11,6 +11,7 @@ powershell -ExecutionPolicy Bypass -File .\tests\run-step4.ps1
 | 文件 | 作用 |
 | --- | --- |
 | LayeredIdleSmoke.cs | 四尺寸分层图、固定脚部、alpha 和眨眼阶段检查 |
+| GazeSmoke.cs | 四尺寸追视、透明边缘、固定脚部、恢复原色及指针转向平滑检查；生成 `test-artifacts/screenshots/gaze-preview.png` |
 | ClickArtSmoke.cs | 三张普通点击及叉手姿态的颜色校准、alpha 不变、替换素材不误校准及四尺寸透明边缘检查 |
 | check-click-colors.py | 运行 ClickArtSmoke 后检查十类色彩邻域的 RGB 偏差，需 Pillow、NumPy；只读素材 |
 | SleepMotionSmoke.cs | 四尺寸睡眠呼吸、独立 ZZZ 出现与淡出、透明边缘、固定脚部、循环衔接和睡醒状态切换；后台执行 |
@@ -20,7 +21,7 @@ powershell -ExecutionPolicy Bypass -File .\tests\run-step4.ps1
 | MotionSmoke.cs | 早期实际窗口回归，执行时会显示测试角色，短暂使用鼠标捕获并备份/恢复用户配置 |
 | DragAnimationSmoke.cs | 替代旧方向镜像测试；四尺寸十二帧、透明边缘、绿幕残留、循环与缓存，以及隐藏窗口拖动阈值、四方向、松手恢复检查 |
 | check-drag-colors.py | 运行 DragAnimationSmoke 后检查拖拽动作表十类 RGB 配色、闭眼与睁眼及浅色泪珠保留，需 Pillow、NumPy，只读素材 |
-| run-step4.ps1 | 默认入口，运行分层、点击素材、台词、连续点击、拖拽动画、睡眠呼吸和第 4 步七项后台检查 |
+| run-step4.ps1 | 默认入口，运行分层、追视、点击素材、台词、连续点击、拖拽动画、睡眠呼吸和第 4 步八项后台检查 |
 | encode-step4.py | 把后台测试帧编码为 GIF，需要 Python 和 Pillow |
 
 可选预览编码：

@@ -2,11 +2,11 @@
 
 <img src="assets/icons/app.png" alt="桌宠图标" width="96" />
 
-透明背景、无边框的 Windows 桌面小挂件：会眨眼、呼吸、回应点击，也会在安静时打瞌睡。日常运行完全离线，无需登录、管理员权限或付费 API。
+透明背景、无边框的 Windows 桌面小挂件：会用眼睛追随鼠标、眨眼、呼吸、回应点击，也会在安静时打瞌睡。日常运行完全离线，无需登录、管理员权限或付费 API。
 
-**当前版本：v2.1.0。** 普通用户请下载 Windows 运行包，完整解压后双击 `MakiseDesktopPet.exe`，无需编译。
+**当前版本：v2.2.0。** 普通用户请下载 Windows 运行包，完整解压后双击 `MakiseDesktopPet.exe`，无需编译。
 
-[下载 Windows 运行包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/download/v2.1.0/MakiseDesktopPet-Windows.zip) · [发布页面与源码包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/tag/v2.1.0)
+[下载 Windows 运行包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/download/v2.2.0/MakiseDesktopPet-Windows.zip) · [发布页面与源码包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/tag/v2.2.0)
 
 请保留程序旁的 `assets/`、`dialogues.json` 和配置文件，不要只移动 EXE。运行包内的“使用说明.txt”包含启动、操作、更新和常见问题。
 
@@ -16,11 +16,13 @@
 
 ## 本次更新
 
-- **十二帧拖拽动画**：悬垂、小幅扑腾、眯眼眨眼和滴泪；每帧 80 毫秒，960 毫秒循环。
-- 拖动各方向共用动作，转向不翻转、不重播；按住不移动也继续播放，松开恢复待机。
-- 修复拖拽素材单帧发虚，使用原生透明动作表并调整缩放方式。
-- 抱臂与叉手图按待机底稿修正头脸比例；抱臂加入用户确认的嘟脸表情，重新校准配色。
-- 更换近正方形头像图标，统一应用与托盘图标，提供 16–256 像素 ICO。
+- **待机鼠标追视**：眼珠先跟随指针，头脸与后发稍慢、小幅地响应；转向和回正都平滑过渡。
+- 追视在眨眼时自然衔接，点击、拖动、睡眠和隐藏期间暂停；不会把鼠标移动算作与桌宠互动。
+- 沿用 v2.1.0 的十二帧拖拽、三张普通点击表情、叉手连击、动态 ZZZ、近正方形图标和 60 条本地台词。
+
+![追视的左右与正视状态](docs/media/gaze-preview.png)
+
+上图是程序渲染的三个静态方向，浅色底仅用于展示透明边缘；实际过渡由程序平滑计算。
 
 <details>
 <summary>查看当前拖拽动作分帧</summary>
@@ -52,6 +54,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 
 | 操作 | 效果 |
 | --- | --- |
+| 移动鼠标 | 清醒待机时眼珠先看向指针，头部和后发稍慢地轻微跟随；不算作互动，不推迟睡觉 |
 | 普通左键点击 | 三种表情依次循环，伴随轻微回弹和约 5 秒的中文气泡 |
 | 1.8 秒内点击 4 次 | 进入叉手姿态；继续点击保持，停点约 1.2 秒后恢复 |
 | 按住并移动 | 超过 6 像素开始拖拽；松开保存位置，不误触点击 |
@@ -61,6 +64,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 
 - 初始高度 220 像素，支持 160 / 220 / 280 / 340 像素。首次启动位于主屏幕右下角。
 - 窗口不抢键盘焦点；只统计桌宠自身互动，不监控其他程序的键盘输入。
+- 鼠标追视只读取当前指针坐标，不安装全局输入钩子；点击、拖动和睡眠时自然回到正视方向。
 - 连续点击的特别吐槽有独立 20 秒冷却，保持叉手时不反复刷新气泡。
 - 隐藏仍会在托盘运行，选择“退出”才会结束进程。置底表示位于普通窗口后方。
 - 位置、大小、窗口层级保存在 `%LOCALAPPDATA%\MakiseDesktopPet\settings.json`；显示区域变化时会将角色移回可见区域。
@@ -90,13 +94,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 
 开发与测试环境为 Windows 11、150% 显示缩放、.NET Framework 4.8。后台测试覆盖四种尺寸、透明边缘、眨眼、点击与连击、拖拽状态、睡眠呼吸和 ZZZ；自然三分钟入睡及焦点、托盘的历史实测记录见 [TESTING.md](docs/TESTING.md)。
 
-本次推送前已完成提交文件的独立构建，以及分层待机、点击素材、台词、连击、拖拽和睡眠六项后台回归。嘟脸图虹膜渐变的 RGB 邻域检查有约 4/255 的最大偏差，略超辅助检查的 3/255 阈值，已记入验收记录；其余主要色块已校准。这不等于所有状态的颜色逐像素相同。
+本版发布前已完成独立源码构建、四尺寸追视与眨眼检查，以及点击、台词、连击、拖拽、睡眠和自然入睡后台回归。嘟脸图虹膜渐变的 RGB 邻域检查有约 4/255 的最大偏差，略超辅助检查的 3/255 阈值，已记入验收记录；其余主要色块已校准。这不等于所有状态的颜色逐像素相同。
 
 后台验证不代替鼠标手感、系统托盘的前台验收；多显示器拔插、另一台 Windows 机器和长期稳定性仍待验证。较早的 [动作节选](docs/media/motion-preview.gif) 与 [尺寸对照](docs/media/four-sizes.png) 属于历史预览，不代表当前全部素材与动作。
 
 ## 手动打包
 
-开发期间无需反复打包。v2.1.0 已提供运行包与源码包；自行制作 ZIP 时，在退出桌宠后执行：
+开发期间无需反复打包。v2.2.0 已提供运行包与源码包；自行制作 ZIP 时，在退出桌宠后执行：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\package.ps1

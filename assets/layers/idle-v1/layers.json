@@ -5,6 +5,11 @@
     "width": 1122,
     "height": 1402
   },
+  "gaze": {
+    "eyeCenters": [[447, 508], [697, 450]],
+    "eyeRadii": [[78, 72], [82, 79]],
+    "maxShift": [12, 9]
+  },
   "coordinates": "full-canvas pixels; x right, y down; left/right are viewer-relative",
   "drawOrder": [
     "hair-back-left",

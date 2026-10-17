@@ -46,6 +46,12 @@ namespace MakiseDesktopPet
             public void Dispose() { Image.Dispose(); }
         }
         public sealed class CanvasSpec { public int width { get; set; } public int height { get; set; } }
+        public sealed class GazeSpec
+        {
+            public float[][] eyeCenters { get; set; }
+            public float[][] eyeRadii { get; set; }
+            public float[] maxShift { get; set; }
+        }
         public sealed class LayerSpec
         {
             public string id { get; set; }
@@ -56,6 +62,7 @@ namespace MakiseDesktopPet
         public sealed class Manifest
         {
             public CanvasSpec canvas { get; set; }
+            public GazeSpec gaze { get; set; }
             public LayerSpec[] layers { get; set; }
         }
 
@@ -66,8 +73,11 @@ namespace MakiseDesktopPet
         private Bitmap body, output;
         private Part leftHair, rightHair;
         private readonly Part[] heads = new Part[3];
+        private readonly EyeGazeLayer[] gazeHeads = new EyeGazeLayer[2];
         private long activeSince, lastFrame = -1000;
         private int lastEyes = -1;
+        private double lastEyeX = double.NaN, lastEyeY = double.NaN;
+        private double lastHeadX = double.NaN, lastHeadY = double.NaN;
         internal int Width { get; private set; }
         internal int Height { get; private set; }
 
@@ -77,6 +87,16 @@ namespace MakiseDesktopPet
             manifest = new JavaScriptSerializer().Deserialize<Manifest>(File.ReadAllText(Path.Combine(directory, "layers.json")));
             if (manifest == null || manifest.canvas == null || manifest.canvas.width <= 0 || manifest.canvas.height <= 0 || manifest.layers == null)
                 throw new InvalidDataException("Invalid idle layer manifest.");
+            if (manifest.gaze == null || manifest.gaze.eyeCenters == null || manifest.gaze.eyeRadii == null ||
+                manifest.gaze.eyeCenters.Length != 2 || manifest.gaze.eyeRadii.Length != 2 ||
+                manifest.gaze.maxShift == null || manifest.gaze.maxShift.Length != 2 ||
+                manifest.gaze.maxShift[0] <= 0 || manifest.gaze.maxShift[1] <= 0)
+                throw new InvalidDataException("Missing gaze geometry in idle layer manifest.");
+            for (int i = 0; i < 2; i++)
+                if (manifest.gaze.eyeCenters[i] == null || manifest.gaze.eyeCenters[i].Length != 2 ||
+                    manifest.gaze.eyeRadii[i] == null || manifest.gaze.eyeRadii[i].Length != 2 ||
+                    manifest.gaze.eyeRadii[i][0] <= 0 || manifest.gaze.eyeRadii[i][1] <= 0)
+                    throw new InvalidDataException("Invalid gaze eye region.");
             foreach (LayerSpec definition in manifest.layers)
             {
                 if (definition.pivot == null || definition.pivot.Length != 2)
@@ -142,6 +162,12 @@ namespace MakiseDesktopPet
                         }
                         heads[i] = new Part(Scale(combined));
                     }
+            Size sourceCanvas = new Size(manifest.canvas.width, manifest.canvas.height);
+            Size size = new Size(Width, Height);
+            for (int i = 0; i < gazeHeads.Length; i++)
+                gazeHeads[i] = new EyeGazeLayer(heads[i].Image, heads[i].Bounds, sourceCanvas, size,
+                    manifest.gaze.eyeCenters, manifest.gaze.eyeRadii, manifest.gaze.maxShift,
+                    i == 0 ? 1 : 0.55);
             output = new Bitmap(Width, Height, PixelFormat.Format32bppPArgb);
         }
 
@@ -164,32 +190,49 @@ namespace MakiseDesktopPet
             return new PointF(p[0] * Width / manifest.canvas.width, p[1] * Height / manifest.canvas.height);
         }
 
-        private void DrawTurned(Graphics g, Part image, string id, double angle, double dy)
+        private void DrawTurned(Graphics g, Part image, string id, double angle, double dx, double dy)
+        {
+            DrawTurned(g, image.Image, image.Bounds, id, angle, dx, dy);
+        }
+
+        private void DrawTurned(Graphics g, Bitmap image, Rectangle bounds, string id,
+            double angle, double dx, double dy)
         {
             PointF pivot = Pivot(id);
             GraphicsState saved = g.Save();
-            g.TranslateTransform(pivot.X, pivot.Y + (float)dy);
+            g.TranslateTransform(pivot.X + (float)dx, pivot.Y + (float)dy);
             g.RotateTransform((float)angle);
             g.TranslateTransform(-pivot.X, -pivot.Y);
-            g.DrawImage(image.Image, image.Bounds, 0, 0, image.Bounds.Width, image.Bounds.Height, GraphicsUnit.Pixel);
+            g.DrawImage(image, bounds, 0, 0, bounds.Width, bounds.Height, GraphicsUnit.Pixel);
             g.Restore(saved);
         }
 
         internal Bitmap Render(long now, int eyes, out bool changed)
         {
+            return Render(now, eyes, 0, 0, 0, 0, out changed);
+        }
+
+        internal Bitmap Render(long now, int eyes, double eyeX, double eyeY,
+            double faceX, double faceY, out bool changed)
+        {
             if (eyes < 0 || eyes > 2) throw new ArgumentOutOfRangeException("eyes");
-            changed = eyes != lastEyes || now - lastFrame >= 16 || now < lastFrame;
+            changed = eyes != lastEyes || now - lastFrame >= 16 || now < lastFrame ||
+                eyeX != lastEyeX || eyeY != lastEyeY || faceX != lastHeadX || faceY != lastHeadY;
             if (!changed) return output;
             lastFrame = now;
             lastEyes = eyes;
+            lastEyeX = eyeX; lastEyeY = eyeY;
+            lastHeadX = faceX; lastHeadY = faceY;
             double gain = Math.Max(0, Math.Min(1, (now - activeSince) / 240.0));
             gain = gain * gain * (3 - 2 * gain);
             double breath = PetMotion.Breath(now, Height);
             double anchor = Math.Floor(Height * 0.88);
             double neckOffset = breath * (anchor - Pivot("head-base").Y) / anchor;
-            double headAngle = HeadAngle(now) * gain;
-            double leftAngle = (HeadAngle(now - 220) + 0.17 * Math.Sin((now - 220) * Math.PI * 2 / 4700.0)) * gain;
-            double rightAngle = (HeadAngle(now - 340) + 0.14 * Math.Sin((now - 340) * Math.PI * 2 / 5300.0)) * gain;
+            double headAngle = HeadAngle(now) * gain + faceX * 0.65;
+            double headDx = faceX * Math.Min(1.1, Height / 220.0);
+            double headDy = neckOffset + faceY * Math.Min(0.8, Height * 0.0036);
+            double leftAngle = (HeadAngle(now - 220) + 0.17 * Math.Sin((now - 220) * Math.PI * 2 / 4700.0)) * gain + faceX * 0.32;
+            double rightAngle = (HeadAngle(now - 340) + 0.14 * Math.Sin((now - 340) * Math.PI * 2 / 5300.0)) * gain + faceX * 0.32;
             bool bodyChanged;
             Bitmap breathingBody = bodyMotion.Render(body, breath, out bodyChanged);
             using (Graphics g = Graphics.FromImage(output))
@@ -202,10 +245,11 @@ namespace MakiseDesktopPet
                 // Bilinear subpixel transforms avoid expensive repeated resampling.
                 g.InterpolationMode = InterpolationMode.Bilinear;
                 g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                DrawTurned(g, leftHair, "hair-back-left", leftAngle, neckOffset);
-                DrawTurned(g, rightHair, "hair-back-right", rightAngle, neckOffset);
+                DrawTurned(g, leftHair, "hair-back-left", leftAngle, headDx * 0.4, neckOffset + faceY * 0.3);
+                DrawTurned(g, rightHair, "hair-back-right", rightAngle, headDx * 0.4, neckOffset + faceY * 0.3);
                 g.DrawImage(breathingBody, new Rectangle(0, 0, Width, Height), 0, 0, Width, Height, GraphicsUnit.Pixel);
-                DrawTurned(g, heads[eyes], "head-base", headAngle, neckOffset);
+                Bitmap face = eyes < gazeHeads.Length ? gazeHeads[eyes].Render(eyeX, eyeY) : heads[eyes].Image;
+                DrawTurned(g, face, heads[eyes].Bounds, "head-base", headAngle, headDx, headDy);
             }
             return output;
         }
@@ -219,9 +263,11 @@ namespace MakiseDesktopPet
             if (output != null) output.Dispose();
             body = output = null;
             leftHair = rightHair = null;
+            for (int i = 0; i < gazeHeads.Length; i++) { if (gazeHeads[i] != null) gazeHeads[i].Dispose(); gazeHeads[i] = null; }
             for (int i = 0; i < heads.Length; i++) { if (heads[i] != null) heads[i].Dispose(); heads[i] = null; }
             lastFrame = -1000;
             lastEyes = -1;
+            lastEyeX = lastEyeY = lastHeadX = lastHeadY = double.NaN;
         }
 
         public void Dispose() { ReleaseFrames(); bodyMotion.Dispose(); }

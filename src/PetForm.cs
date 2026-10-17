@@ -32,6 +32,7 @@ namespace MakiseDesktopPet
         private readonly SleepAnimation sleepAnimation = new SleepAnimation();
         private readonly DragAnimation dragAnimation;
         private readonly LayeredIdleAnimation layeredIdle;
+        private readonly GazeMotion gaze = new GazeMotion();
 
         private Pose pose = Pose.Idle;
         private int nextClickPose;
@@ -259,7 +260,8 @@ namespace MakiseDesktopPet
             {
                 int eyes = pose == Pose.Blink ? LayeredIdleAnimation.EyeForBlink(now, blinkStarted, blinkUntil) : 0;
                 bool updated;
-                Bitmap idleFrame = layeredIdle.Render(now, eyes, out updated);
+                Bitmap idleFrame = layeredIdle.Render(now, eyes,
+                    gaze.EyeX, gaze.EyeY, gaze.HeadX, gaze.HeadY, out updated);
                 if (updated || force) SetFrame(idleFrame);
                 return;
             }
@@ -452,6 +454,10 @@ namespace MakiseDesktopPet
                 }
             }
 
+            bool attentive = Visible && !pressed && !sleeping &&
+                (pose == Pose.Idle || pose == Pose.Blink);
+            Point pointer = attentive ? PhysicalMousePosition() : Point.Empty;
+            gaze.Update(now, pointer, new Rectangle(Location, sprites.Get(Pose.Idle).Size), attentive);
             if (Visible) RenderMotion(now, false);
         }
 
