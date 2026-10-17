@@ -228,11 +228,11 @@ namespace MakiseDesktopPet
             double breath = PetMotion.Breath(now, Height);
             double anchor = Math.Floor(Height * 0.88);
             double neckOffset = breath * (anchor - Pivot("head-base").Y) / anchor;
-            double headAngle = HeadAngle(now) * gain + faceX * 0.65;
-            double headDx = faceX * Math.Min(1.1, Height / 220.0);
-            double headDy = neckOffset + faceY * Math.Min(0.8, Height * 0.0036);
-            double leftAngle = (HeadAngle(now - 220) + 0.17 * Math.Sin((now - 220) * Math.PI * 2 / 4700.0)) * gain + faceX * 0.32;
-            double rightAngle = (HeadAngle(now - 340) + 0.14 * Math.Sin((now - 340) * Math.PI * 2 / 5300.0)) * gain + faceX * 0.32;
+            double headAngle = HeadAngle(now) * gain + faceX * 1.1;
+            double headDx = faceX * Math.Min(2.8, Height / 120.0);
+            double headDy = neckOffset + faceY * Math.Min(1.9, Height * 0.006);
+            double leftAngle = (HeadAngle(now - 220) + 0.17 * Math.Sin((now - 220) * Math.PI * 2 / 4700.0)) * gain + faceX * 0.5;
+            double rightAngle = (HeadAngle(now - 340) + 0.14 * Math.Sin((now - 340) * Math.PI * 2 / 5300.0)) * gain + faceX * 0.5;
             bool bodyChanged;
             Bitmap breathingBody = bodyMotion.Render(body, breath, out bodyChanged);
             using (Graphics g = Graphics.FromImage(output))
@@ -245,8 +245,8 @@ namespace MakiseDesktopPet
                 // Bilinear subpixel transforms avoid expensive repeated resampling.
                 g.InterpolationMode = InterpolationMode.Bilinear;
                 g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                DrawTurned(g, leftHair, "hair-back-left", leftAngle, headDx * 0.4, neckOffset + faceY * 0.3);
-                DrawTurned(g, rightHair, "hair-back-right", rightAngle, headDx * 0.4, neckOffset + faceY * 0.3);
+                DrawTurned(g, leftHair, "hair-back-left", leftAngle, headDx * 0.5, neckOffset + faceY * 0.45);
+                DrawTurned(g, rightHair, "hair-back-right", rightAngle, headDx * 0.5, neckOffset + faceY * 0.45);
                 g.DrawImage(breathingBody, new Rectangle(0, 0, Width, Height), 0, 0, Width, Height, GraphicsUnit.Pixel);
                 Bitmap face = eyes < gazeHeads.Length ? gazeHeads[eyes].Render(eyeX, eyeY) : heads[eyes].Image;
                 DrawTurned(g, face, heads[eyes].Bounds, "head-base", headAngle, headDx, headDy);

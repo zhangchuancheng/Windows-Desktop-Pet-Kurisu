@@ -8,7 +8,7 @@
   "gaze": {
     "eyeCenters": [[447, 508], [697, 450]],
     "eyeRadii": [[78, 72], [82, 79]],
-    "maxShift": [12, 9]
+    "maxShift": [20, 12]
   },
   "coordinates": "full-canvas pixels; x right, y down; left/right are viewer-relative",
   "drawOrder": [
