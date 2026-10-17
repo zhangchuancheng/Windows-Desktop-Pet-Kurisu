@@ -245,8 +245,9 @@ namespace MakiseDesktopPet
                 // Bilinear subpixel transforms avoid expensive repeated resampling.
                 g.InterpolationMode = InterpolationMode.Bilinear;
                 g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                DrawTurned(g, leftHair, "hair-back-left", leftAngle, headDx * 0.5, neckOffset + faceY * 0.45);
-                DrawTurned(g, rightHair, "hair-back-right", rightAngle, headDx * 0.5, neckOffset + faceY * 0.45);
+                // Keep the roots under the face while the rear hair sways at its own angle.
+                DrawTurned(g, leftHair, "hair-back-left", leftAngle, headDx, headDy);
+                DrawTurned(g, rightHair, "hair-back-right", rightAngle, headDx, headDy);
                 g.DrawImage(breathingBody, new Rectangle(0, 0, Width, Height), 0, 0, Width, Height, GraphicsUnit.Pixel);
                 Bitmap face = eyes < gazeHeads.Length ? gazeHeads[eyes].Render(eyeX, eyeY) : heads[eyes].Image;
                 DrawTurned(g, face, heads[eyes].Bounds, "head-base", headAngle, headDx, headDy);

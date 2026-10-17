@@ -28,6 +28,18 @@ namespace MakiseDesktopPet
             return result;
         }
 
+        private static void RequireUnchanged(byte[] baseline, byte[] sample, int width,
+            Rectangle region, string message)
+        {
+            for (int y = region.Top; y < region.Bottom; y++)
+                for (int x = region.Left; x < region.Right; x++)
+                {
+                    int offset = (y * width + x) * 4;
+                    for (int channel = 0; channel < 4; channel++)
+                        Require(baseline[offset + channel] == sample[offset + channel], message);
+                }
+        }
+
         private static void Main(string[] args)
         {
             try
@@ -63,6 +75,9 @@ namespace MakiseDesktopPet
                         byte[] tracked = Pixels(animation.Render(1800, 0, 0.95, -0.75,
                             0.8, -0.6, out changed));
                         int stride = animation.Width * 4;
+                        if (height == 340)
+                            RequireUnchanged(neutral, eyesOnly, animation.Width,
+                                new Rectangle(185, 95, 10, 30), "Eye tracking warped the right side lock");
                         int different = 0, eyeDifferent = 0;
                         for (int y = 0; y < height; y++)
                             for (int x = 0; x < animation.Width; x++)
@@ -96,6 +111,50 @@ namespace MakiseDesktopPet
 
                     animation.Resize(340);
                     animation.Enter(0);
+                    bool sweepChanged;
+                    byte[] sweepNeutral = Pixels(animation.Render(1800, 0, out sweepChanged));
+                    Rectangle[] protectedArtwork = {
+                        new Rectangle(145, 87, 40, 12), // right eyebrow / upper lash
+                        new Rectangle(185, 95, 10, 30), // right side lock
+                        new Rectangle(78, 100, 45, 12), // left eyebrow
+                        new Rectangle(55, 112, 32, 35) // left side lock
+                    };
+                    using (Bitmap angles = new Bitmap(animation.Width * 3, animation.Height * 3, PixelFormat.Format32bppArgb))
+                    using (Graphics grid = Graphics.FromImage(angles))
+                    {
+                        grid.Clear(Color.FromArgb(242, 238, 232));
+                        for (int row = 0; row < 3; row++)
+                            for (int col = 0; col < 3; col++)
+                            {
+                                double directionX = col - 1, directionY = row - 1;
+                                byte[] eyeFrame = Pixels(animation.Render(1800, 0,
+                                    directionX, directionY, 0, 0, out sweepChanged));
+                                foreach (Rectangle region in protectedArtwork)
+                                    RequireUnchanged(sweepNeutral, eyeFrame, animation.Width, region,
+                                        "Eye tracking warped the eyebrow or side hair at " + col + "/" + row);
+                                Bitmap full = animation.Render(1800, 0, directionX, directionY,
+                                    directionX * 0.8, directionY * 0.8, out sweepChanged);
+                                byte[] fullPixels = Pixels(full);
+                                for (int x = 0; x < animation.Width; x++)
+                                {
+                                    Require(fullPixels[x * 4 + 3] == 0, "Clipped top edge in gaze sweep");
+                                    int bottom = ((animation.Height - 1) * animation.Width + x) * 4;
+                                    Require(fullPixels[bottom + 3] == 0, "Clipped bottom edge in gaze sweep");
+                                }
+                                grid.DrawImageUnscaled(full, col * animation.Width, row * animation.Height);
+                            }
+                        string anglePath = Path.Combine(args[0], "test-artifacts", "screenshots", "gaze-angle-grid.png");
+                        angles.Save(anglePath, ImageFormat.Png);
+                    }
+                    for (int step = 0; step < 16; step++)
+                    {
+                        double angle = step * Math.PI / 8;
+                        byte[] eyeFrame = Pixels(animation.Render(1800, 0,
+                            Math.Cos(angle), Math.Sin(angle), 0, 0, out sweepChanged));
+                        foreach (Rectangle region in protectedArtwork)
+                            RequireUnchanged(sweepNeutral, eyeFrame, animation.Width, region,
+                                "Eye tracking warped protected artwork at direction " + step);
+                    }
                     using (Bitmap sheet = new Bitmap(animation.Width * 3, 350, PixelFormat.Format32bppArgb))
                     using (Graphics g = Graphics.FromImage(sheet))
                     {
@@ -110,7 +169,7 @@ namespace MakiseDesktopPet
                         sheet.Save(Path.Combine(args[0], "test-artifacts", "screenshots", "gaze-preview.png"));
                     }
                 }
-                Console.WriteLine("PASS: smooth eye/head response and inactive return to center.");
+                Console.WriteLine("PASS: smooth eye/head response, 8 extreme and 16 intermediate directions, protected brows/hair, inactive return to center.");
             }
             catch (Exception error)
             {

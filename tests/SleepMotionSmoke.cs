@@ -146,7 +146,7 @@ namespace MakiseDesktopPet
                     }
                     Call(pet,"SetPose",Pose.Drag);
                     bool dragChanged;
-                    Require(Same(Frame(pet),Pixels(((DragAnimation)Read(pet,"dragAnimation")).Render(0,out dragChanged))),"Sleep frame remained on drag");
+                    Require(Same(Frame(pet),Pixels(((DragWarpAnimation)Read(pet,"dragAnimation")).Render(0,out dragChanged))),"Sleep frame remained on drag");
                     Require(!pet.Visible&&!((BubbleForm)Read(pet,"bubble")).Visible,"Background test showed a window");
                     Console.WriteLine("PASS: sleep entry/render loop, four sleep sizes, wake/idle/click/drag transitions; no shown windows.");
                 }

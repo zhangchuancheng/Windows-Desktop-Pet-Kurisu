@@ -9,14 +9,16 @@ if (-not (Test-Path -LiteralPath $compiler)) {
 }
 
 $spriteDir = Join-Path $projectRoot 'assets\sprites'
-foreach ($state in @('idle', 'blink', 'poke-block', 'poke-fold', 'poke-cheek', 'rapid', 'drag', 'sleep', 'wake')) {
-    if (-not (Test-Path -LiteralPath (Join-Path $spriteDir ($state + '.png')))) {
-        throw "Missing sprite: $state.png"
+$spriteFiles = @('idle.png', 'blink.png', 'poke-block.png', 'poke-fold.png',
+    'poke-cheek.png', 'rapid.png', 'drag.png', 'sleep.png', 'wake.png', 'drag-base.png')
+foreach ($spriteFile in $spriteFiles) {
+    if (-not (Test-Path -LiteralPath (Join-Path $spriteDir $spriteFile))) {
+        throw "Missing sprite: $spriteFile"
     }
 }
 
 $dist = Join-Path $projectRoot 'dist'
-foreach ($file in @('drag-sheet.png', 'drag-animation.json', 'drag-colors.json')) {
+foreach ($file in @('drag-base.png', 'drag-warp.json', 'drag-colors.json')) {
     if (-not (Test-Path -LiteralPath (Join-Path $spriteDir $file))) { throw "Missing drag animation asset: $file" }
 }
 $layerDir = Join-Path $projectRoot 'assets\layers\idle-v1'
@@ -44,9 +46,15 @@ New-Item -ItemType Directory -Force -Path $distIcons | Out-Null
 Copy-Item -LiteralPath $appIcon -Destination $distIcons -Force
 $distSprites = Join-Path $dist 'assets\sprites'
 New-Item -ItemType Directory -Force -Path $distSprites | Out-Null
-Copy-Item -Path (Join-Path $spriteDir '*.png') -Destination $distSprites -Force
+foreach ($spriteFile in $spriteFiles) {
+    Copy-Item -LiteralPath (Join-Path $spriteDir $spriteFile) -Destination $distSprites -Force
+}
+foreach ($legacyFile in @('drag-sheet.png', 'drag-animation.json')) {
+    $legacyPath = Join-Path $distSprites $legacyFile
+    if (Test-Path -LiteralPath $legacyPath) { Remove-Item -LiteralPath $legacyPath }
+}
 Copy-Item -LiteralPath (Join-Path $spriteDir 'click-colors.json') -Destination $distSprites -Force
-foreach ($file in @('drag-animation.json', 'drag-colors.json')) {
+foreach ($file in @('drag-warp.json', 'drag-colors.json')) {
     Copy-Item -LiteralPath (Join-Path $spriteDir $file) -Destination $distSprites -Force
 }
 $distLayers = Join-Path $dist 'assets\layers\idle-v1'

@@ -86,8 +86,8 @@ namespace MakiseDesktopPet
                         double uy = (y - eye.Y) / eye.RadiusY;
                         double radiusSquared = ux * ux + uy * uy;
                         if (radiusSquared >= 1) continue;
-                        double fade = Math.Max(0, Math.Min(1, (1 - radiusSquared) / 0.75));
-                        fade = fade * fade * (3 - 2 * fade);
+                        // Ease across the whole eye so the texture does not fold at its rim.
+                        double fade = 0.5 + 0.5 * Math.Cos(Math.PI * Math.Sqrt(radiusSquared));
                         double sampleX = x - dx * fade;
                         double sampleY = y - dy * fade;
                         int x0 = (int)Math.Floor(sampleX), y0 = (int)Math.Floor(sampleY);

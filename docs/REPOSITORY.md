@@ -21,7 +21,7 @@
 
 ## 仓库与版本
 
-公开仓库：[zhangchuancheng/Windows-Desktop-Pet-Kurisu](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu)，默认分支 `main`。当前版本为 `v2.2.0`，新增待机鼠标追视，并提供 Windows 运行包和源码包，变更见 [CHANGELOG.md](../CHANGELOG.md)。
+公开仓库：[zhangchuancheng/Windows-Desktop-Pet-Kurisu](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu)，默认分支 `main`。当前版本为 `v2.3.0`，新增连续拖拽、尺寸对齐和新版控制界面，并提供 Windows 运行包和源码包，变更见 [CHANGELOG.md](../CHANGELOG.md)。
 
 提交作者使用 `zhangchuancheng` 及该 GitHub 账号的 noreply 邮箱。后续提交前检查本地身份与远程地址，避免将提交归属到其他账号：
 
@@ -37,7 +37,7 @@ git commit -m "Describe the change"
 git push origin main
 ```
 
-`origin` 已配置，不需要重新添加。v2.2.0 的运行包、源码包和 SHA-256 校验文件以 GitHub Release 附件提供。ZIP 保留在本机 releases/，不加入 Git 历史；需要更新附件时重新执行 package.ps1。
+`origin` 已配置，不需要重新添加。v2.3.0 的运行包、源码包和 SHA-256 校验文件以 GitHub Release 附件提供。ZIP 保留在本机 releases/，不加入 Git 历史；需要更新附件时重新执行 package.ps1。
 
 ## 首次整理验证（2026-10-15，历史记录）
 

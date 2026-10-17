@@ -10,8 +10,8 @@
   },
   "profiles": [
     {
-      "file": "drag-sheet.png",
-      "sha256": "3DF5799266859771E1DC5F168C222207A555FFEA764F061FB3BEEA4E6F48BF07",
+      "file": "drag-base.png",
+      "sha256": "856206936F9DB65C7188A17275D8C6B3E4B45DB587A53FB35CCC506513C54C32",
       "anchors": [
         {
           "material": "hair",

@@ -22,7 +22,7 @@ namespace MakiseDesktopPet
         private readonly BubbleForm bubble;
         private readonly NotifyIcon tray;
         private readonly Icon trayIcon;
-        private readonly ContextMenuStrip petMenu;
+        private readonly PetMenuPopup petMenu;
         private readonly ContextMenuStrip trayMenu;
         private readonly Timer timer;
         private readonly Stopwatch clock = Stopwatch.StartNew();
@@ -30,7 +30,7 @@ namespace MakiseDesktopPet
         private readonly Queue<long> recentClicks = new Queue<long>();
         private readonly PetMotion motion = new PetMotion();
         private readonly SleepAnimation sleepAnimation = new SleepAnimation();
-        private readonly DragAnimation dragAnimation;
+        private readonly DragWarpAnimation dragAnimation;
         private readonly LayeredIdleAnimation layeredIdle;
         private readonly GazeMotion gaze = new GazeMotion();
 
@@ -44,6 +44,7 @@ namespace MakiseDesktopPet
         private int baseY;
         private Point pressPoint;
         private Point pressBase;
+        private Point lastDragTarget;
         private long lastInteraction;
         private long sleepStarted;
         private long poseUntil;
@@ -64,7 +65,7 @@ namespace MakiseDesktopPet
             settingsStore = new SettingsStore();
             settings = settingsStore.Load();
             sprites = new SpriteAssets(System.IO.Path.Combine(directory, "assets", "sprites"), settings.Height);
-            dragAnimation = new DragAnimation(System.IO.Path.Combine(directory, "assets", "sprites"), sprites.Width, sprites.Height);
+            dragAnimation = new DragWarpAnimation(System.IO.Path.Combine(directory, "assets", "sprites"), sprites.Width, sprites.Height);
             layeredIdle = new LayeredIdleAnimation(System.IO.Path.Combine(directory, "assets", "layers", "idle-v1"), settings.Height);
             dialogues = new Dialogues(System.IO.Path.Combine(directory, "dialogues.json"));
             bubble = new BubbleForm();
@@ -104,41 +105,18 @@ namespace MakiseDesktopPet
             SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
         }
 
-        private ContextMenuStrip BuildPetMenu()
+        private PetMenuPopup BuildPetMenu()
         {
-            ContextMenuStrip menu = new ContextMenuStrip();
-            menu.ShowImageMargin = false;
-            menu.Items.Add("换一句话", null, delegate { ChangeDialogue(); });
-            ToolStripMenuItem sizes = new ToolStripMenuItem("调整大小");
-            foreach (int height in new[] { 160, 220, 280, 340 })
-            {
-                int choice = height;
-                ToolStripMenuItem item = new ToolStripMenuItem(height + " 像素");
-                item.Tag = height;
-                item.Click += delegate { ChangeSize(choice); };
-                sizes.DropDownItems.Add(item);
-            }
-            menu.Items.Add(sizes);
-            ToolStripMenuItem layer = new ToolStripMenuItem("窗口层级");
-            ToolStripMenuItem topmost = new ToolStripMenuItem("置顶");
-            ToolStripMenuItem bottommost = new ToolStripMenuItem("置底");
-            topmost.Click += delegate { ChangeLayer(true); };
-            bottommost.Click += delegate { ChangeLayer(false); };
-            layer.DropDownItems.Add(topmost);
-            layer.DropDownItems.Add(bottommost);
-            menu.Items.Add(layer);
-            menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add("隐藏到托盘", null, delegate { HideToTray(); });
-            menu.Items.Add("退出", null, delegate { Close(); });
-            menu.Closed += delegate { KeepAtBottom(); };
-            menu.Opening += delegate
-            {
-                topmost.Checked = settings.TopMost;
-                bottommost.Checked = !settings.TopMost;
-                foreach (ToolStripMenuItem item in sizes.DropDownItems)
-                    item.Checked = (int)item.Tag == settings.Height;
-            };
-            return menu;
+            return new PetMenuPopup(
+                delegate(int height) { ApplySize(height); }, SaveSettings, ChangeLayer,
+                ChangeUiScale, ChangeDialogue, HideToTray, Close, KeepAtBottom);
+        }
+
+        private void ChangeUiScale(int percent)
+        {
+            if (settings.UiScalePercent == percent) return;
+            settings.UiScalePercent = percent;
+            SaveSettings();
         }
 
         private void ChangeLayer(bool topmost)
@@ -199,6 +177,7 @@ namespace MakiseDesktopPet
             dragging = false;
             pressPoint = PhysicalMousePosition();
             pressBase = new Point(baseX, baseY);
+            lastDragTarget = pressBase;
             Capture = true;
             if (pose == Pose.Blink)
             {
@@ -235,11 +214,22 @@ namespace MakiseDesktopPet
             if (dragging)
             {
                 Interact();
-                baseX = pressBase.X + dx;
-                baseY = pressBase.Y + dy;
-                ClampToVisibleScreen();
-                Location = new Point(baseX, baseY);
+                UpdateDragPosition(pointer);
             }
+        }
+
+        private void UpdateDragPosition(Point pointer)
+        {
+            dragAnimation.ObservePointer(pointer);
+            int targetX = pressBase.X + pointer.X - pressPoint.X;
+            int targetY = pressBase.Y + pointer.Y - pressPoint.Y;
+            if (targetX == lastDragTarget.X && targetY == lastDragTarget.Y) return;
+            lastDragTarget = new Point(targetX, targetY);
+            baseX = targetX;
+            baseY = targetY;
+            ClampToVisibleScreen();
+            Point next = new Point(baseX, baseY);
+            if (Location != next) Location = next;
         }
 
         private Bitmap CurrentFrame()
@@ -295,7 +285,8 @@ namespace MakiseDesktopPet
             if (e.Button == MouseButtons.Right)
             {
                 Interact();
-                petMenu.Show(Cursor.Position);
+                petMenu.ShowAt(Cursor.Position, settings.Height, settings.TopMost,
+                    settings.UiScalePercent);
                 return;
             }
             if (e.Button != MouseButtons.Left || !pressed) return;
@@ -390,7 +381,11 @@ namespace MakiseDesktopPet
             }
             if (next == Pose.Idle && pose != Pose.Blink) layeredIdle.Enter(clock.ElapsedMilliseconds);
             if (next == Pose.Sleep) sleepStarted = clock.ElapsedMilliseconds;
-            if (next == Pose.Drag) dragStarted = clock.ElapsedMilliseconds;
+            if (next == Pose.Drag)
+            {
+                dragStarted = clock.ElapsedMilliseconds;
+                dragAnimation.ResetMotion(PhysicalMousePosition());
+            }
             pose = next;
             RenderMotion(clock.ElapsedMilliseconds, true);
         }
@@ -410,6 +405,9 @@ namespace MakiseDesktopPet
         private void OnTimerTick(object sender, EventArgs e)
         {
             long now = clock.ElapsedMilliseconds;
+            // MouseMove can be coalesced while a layered window is updating.
+            // Sample the held pointer once per visual tick as a fallback.
+            if (dragging && pressed) UpdateDragPosition(PhysicalMousePosition());
             if (!sleeping && !pressed && now - lastInteraction >= SleepAfterMs)
                 EnterSleep();
 
@@ -542,8 +540,13 @@ namespace MakiseDesktopPet
 
         private void ChangeSize(int height)
         {
+            if (ApplySize(height)) SaveSettings();
+        }
+
+        private bool ApplySize(int height)
+        {
             Interact();
-            if (settings.Height == height) return;
+            if (settings.Height == height) return false;
             settings.Height = height;
             motion.Reset();
             sleepAnimation.Reset();
@@ -554,8 +557,8 @@ namespace MakiseDesktopPet
             ClampToVisibleScreen();
             Location = new Point(baseX, baseY);
             if (bubble.Visible) LayoutBubble();
-            SaveSettings();
             KeepAtBottom();
+            return true;
         }
 
         private void ClampToVisibleScreen()
