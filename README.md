@@ -4,9 +4,9 @@
 
 透明背景、无边框的 Windows 桌面小挂件：会眨眼、呼吸、回应点击，也会在安静时打瞌睡；原版与七套服饰均能用眼睛追随鼠标。基础互动无需联网、登录、管理员权限或付费 API；可选的本地聊天在首次下载模型后也能离线使用。
 
-**当前版本：v3.1.0。** 普通用户请下载 Windows 运行包，完整解压后双击 `MakiseDesktopPet.exe`，无需编译。角色改用统一的 2D 造型，并可从原版切换到七套服饰；选择会保存在本机，重启后继续使用。
+**当前版本：v3.1.1。** 普通用户请下载 Windows 运行包，完整解压后双击 `MakiseDesktopPet.exe`，无需编译。角色改用统一的 2D 造型，并可从原版切换到七套服饰；选择会保存在本机，重启后继续使用。
 
-[下载 Windows 运行包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/download/v3.1.0/MakiseDesktopPet-Windows.zip) · [发布页面与源码包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/tag/v3.1.0)
+[下载 Windows 运行包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/download/v3.1.1/MakiseDesktopPet-Windows.zip) · [发布页面与源码包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/tag/v3.1.1)
 
 请保留程序旁的 `assets/`、`dialogues.json`、`chat-persona.json` 和配置文件，不要只移动 EXE。运行包内的“使用说明.txt”包含启动、操作、聊天设置、更新和常见问题。
 
@@ -28,6 +28,10 @@
 ![当前待机与点击姿态](docs/media/click-poses.png)
 
 从左到右：原版 2D 造型的待机、抬手挡戳、抱臂嘟脸、轻捂脸颊、连续点击叉手。三张普通点击图与待机的脸部比例、身体站位和鞋底位置相近；其他动作的头发和脸部色阶也按待机图校准。浅色底仅用于展示透明边缘。
+
+## v3.1.1 更新：服饰动作配色校准
+
+七套服饰共 77 张动作图完成离线校色：发色和肤色向原版待机统一，衣物向各套自己的待机配色统一，减小换装及动作切换时的色差。保留阴影层次、原有动作和透明边缘，继续支持局部眨眼、滴泪与鼠标追视。详见 [配色校准说明](docs/OUTFIT-COLORS.md)。
 
 ## v3.1.0 更新：所有服饰的追视、泪滴与眨眼
 
