@@ -31,6 +31,29 @@
 
 ## v3.0.0 更新：2D 造型与七套换装
 
+七套新增皮肤的待机样式（从左到右与服装菜单顺序一致）：
+
+<table>
+  <tr>
+    <td align="center" width="14%"><img src="assets/concepts/outfit-actions-2026-10-19/lab-coat/idle.png" alt="实验服待机样式" width="140" /></td>
+    <td align="center" width="14%"><img src="assets/concepts/outfit-actions-2026-10-19/maid/idle.png" alt="女仆装待机样式" width="140" /></td>
+    <td align="center" width="14%"><img src="assets/concepts/outfit-actions-2026-10-19/yukata/idle.png" alt="浴衣待机样式" width="140" /></td>
+    <td align="center" width="14%"><img src="assets/concepts/outfit-actions-2026-10-19/christmas-v2/idle.png" alt="圣诞装待机样式" width="140" /></td>
+    <td align="center" width="14%"><img src="assets/concepts/outfit-actions-2026-10-19/red-dress-handfix/idle.png" alt="红礼服待机样式" width="140" /></td>
+    <td align="center" width="14%"><img src="assets/concepts/outfit-actions-2026-10-19/beachwear-v2/idle.png" alt="运动泳装待机样式" width="140" /></td>
+    <td align="center" width="14%"><img src="assets/concepts/outfit-actions-2026-10-19/battle-suit/idle.png" alt="战斗装待机样式" width="140" /></td>
+  </tr>
+  <tr>
+    <td align="center">实验服</td>
+    <td align="center">女仆装</td>
+    <td align="center">浴衣</td>
+    <td align="center">圣诞装</td>
+    <td align="center">红礼服</td>
+    <td align="center">运动泳装</td>
+    <td align="center">战斗装</td>
+  </tr>
+</table>
+
 - 待机、三张普通点击图、连点叉手、睡眠、唤醒和拖拽底稿都已换成统一的平面 2D 造型，人物比例与鞋底位置对齐。
 - 原版待机从单张图连续计算轻微呼吸和头发响应，眨眼仅替换眼部；追视保留。原版拖拽由新悬垂姿态连续计算四肢和发梢摆动，眼角泪光与程序滴落泪珠保留。
 - 睡醒显示单张 `wake.png` 姿态图，约 850 毫秒后回到待机；连续 3 分钟没有与桌宠互动后自动入睡，移动鼠标不会重置计时。
