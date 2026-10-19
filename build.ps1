@@ -21,6 +21,15 @@ $outfitIds = @('lab-coat', 'maid', 'yukata', 'christmas-v2', 'red-dress-handfix'
     'beachwear-v2', 'battle-suit')
 foreach ($outfitId in $outfitIds) {
     $outfitDirectory = Join-Path $outfitSource $outfitId
+    if (-not (Test-Path -LiteralPath (Join-Path $outfitDirectory 'drag-warp.json'))) {
+        throw "Missing outfit drag layout: $outfitId"
+    }
+    if (-not (Test-Path -LiteralPath (Join-Path $outfitDirectory 'idle-blink.json'))) {
+        throw "Missing outfit idle blink layout: $outfitId"
+    }
+    if (-not (Test-Path -LiteralPath (Join-Path $outfitDirectory 'idle-motion.json'))) {
+        throw "Missing outfit gaze layout: $outfitId"
+    }
     foreach ($spriteFile in $spriteFiles) {
         $outfitSprite = Join-Path $outfitDirectory $spriteFile
         if (-not (Test-Path -LiteralPath $outfitSprite -PathType Leaf)) {
@@ -70,6 +79,9 @@ foreach ($outfitId in $outfitIds) {
     foreach ($spriteFile in $spriteFiles) {
         Copy-Item -LiteralPath (Join-Path $source $spriteFile) -Destination $destination -Force
     }
+    Copy-Item -LiteralPath (Join-Path $source 'drag-warp.json') -Destination $destination -Force
+    Copy-Item -LiteralPath (Join-Path $source 'idle-blink.json') -Destination $destination -Force
+    Copy-Item -LiteralPath (Join-Path $source 'idle-motion.json') -Destination $destination -Force
 }
 $distWakeSequence = Join-Path $distSprites 'wake-sequence'
 if (Test-Path -LiteralPath $distWakeSequence) {

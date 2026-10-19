@@ -13,7 +13,7 @@
 | `sleep.png` | 睡眠姿态；程序另绘缓慢呼吸和飘动的 ZZZ |
 | `wake.png` | 半睁眼、抬臂靠近抱臂姿势的单张唤醒过渡图，约 850 毫秒后切回待机 |
 | `drag-base.png` | 拖拽的完整悬垂底稿；程序连续计算双腿、双手和发梢的运动及滴落泪珠 |
-| `drag.png` | 当前静态拖拽底稿，原版在其上叠加动态泪滴与局部眨眼 |
+| `drag.png` | 当前静态拖拽底稿，所有服饰在其上叠加动态泪滴与局部眨眼 |
 
 当前设计源图在 `assets/concepts/kurisu-2d-*.png`。`tools/prepare-2d-sprites.py` 将源图对齐、裁切，并以 `idle.png` 为基准校准点击、连点、睡眠、唤醒和拖拽图的头发与脸部色阶，再导出对应的运行 PNG。校色保留各图原有的线条、阴影和透明轮廓。待机和两张眨眼图沿用原待机底稿；三张点击图各有一张以该底稿为造型基准的独立源图，保留不同手势和表情。`rapid.png` 使用独立叉手源图，并对齐待机的脸部和腰部位置；短裤以下沿用待机图，避免连点时双腿、鞋子跳位。半闭眼和闭眼只替换眼部。脚本只在制作素材时需要 Python、Pillow 和 NumPy；**运行和 C# 构建不需要 Python**。脚本会覆盖对应的单张运行图，手工修改后请先备份。旧版素材与分层文件可从 Git 历史找回，当前运行程序不再加载它们。
 
@@ -27,7 +27,13 @@
 
 七套换装运行图位于 `assets/concepts/outfit-actions-2026-10-19/`：目录 ID 依次为 `lab-coat`、`maid`、`yukata`、`christmas-v2`、`red-dress-handfix`、`beachwear-v2`、`battle-suit`。运行构建把每套目录顶层的 11 张透明 PNG 复制到 `dist/assets/outfits/<ID>/`；生成原图与历史变体保存在本地制作目录，不属于发布源码，也不进入运行包。原版继续使用 `dist/assets/sprites/`。修改服饰图片后重新运行 `build.ps1`，或在退出桌宠后替换运行目录中的对应 PNG。
 
-这些图已接入换装功能，但仍有美术问题。待机眨眼采用各套独立表情图，部分套装的头发、衣纹和鞋子会随眨眼切换而跳动；眼部局部追视暂不启用，拖拽使用静态姿态。普通点击、连点、睡眠与唤醒有各套对应图片。七套的静态检查和目视问题记录在 [动作图 QA 报告](../assets/concepts/outfit-actions-2026-10-19/QA-REPORT.md)及[审阅笔记](../assets/concepts/outfit-actions-2026-10-19/REVIEW-NOTES.md)。
+七套服饰的待机眨眼现在以各自 `idle.png` 为唯一身体底图，仅在眼部生成半闭眼和闭眼，消除旧整图切换造成的衣服、头发与鞋子抽动。旧 `blink-half.png`、`blink.png` 保留，但不再用于换装待机渲染；原版待机和追视保持原有实现，七套换装也已启用各自校准的局部追视。拖拽也使用静态身体，并独立绘制泪滴及局部眨眼。普通点击、连点、睡眠与唤醒仍有各套对应图片，其他动作之间的美术差异不在本次修复范围。原素材检查见 [动作图 QA 报告](../assets/concepts/outfit-actions-2026-10-19/QA-REPORT.md)，本次运行检查见 [待机眨眼修复记录](IDLE-BLINK-FIX.md)。
+
+每套服饰顶层的 `drag-warp.json` 随 11 张 PNG 一同复制到运行目录。`tearOrigins` 是各套双眼的泪滴起点；`eyeTransforms` 分别描述两只眼相对原版眼部轮廓的横纵缩放和偏移；可选的 `eyeSkinSamples` 指定眼睑、脸颊取色点，避免取到刘海。更换拖拽图后须重新校准这些坐标。所有服饰共用原版的泪滴速度、眨眼间隔及双眨概率。
+
+待机眼部配置单独保存在每套 `idle-blink.json`，也随构建复制。它使用相同的 `eyeTransforms` 和可选 `eyeSkinSamples` 字段，但坐标针对待机图，不能直接使用拖拽图坐标。局部眨眼由 `LocalEyeBlink` 绘制；待机呼吸仍由 `IdleMotionAnimation` 连续计算，眨眼不重启呼吸周期。
+
+每套服饰的 `idle-motion.json` 随构建复制，包含睁眼的 `eyeCenters` / `eyeApertures`、局部半闭眼的 `halfEyeCenters` / `halfEyeApertures` 与最大转动幅度。半闭眼时追视强度减半，闭眼时不移动眼球；眼部配置按各套待机图独立校准。
 
 ## 原版拖拽的停用与恢复
 

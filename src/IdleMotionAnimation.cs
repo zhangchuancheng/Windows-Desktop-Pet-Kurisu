@@ -17,6 +17,8 @@ namespace MakiseDesktopPet
             public float[][] eyeCenters { get; set; }
             public float[][][][] eyeApertures { get; set; }
             public float[] maxShift { get; set; }
+            public float[][] halfEyeCenters { get; set; }
+            public float[][][][] halfEyeApertures { get; set; }
         }
 
         public sealed class Manifest
@@ -27,6 +29,7 @@ namespace MakiseDesktopPet
 
         private readonly string directory;
         private readonly bool enableGaze;
+        private readonly bool useLocalBlink;
         private readonly Manifest manifest;
         private readonly Bitmap[] frames = new Bitmap[3];
         private readonly EyeGazeLayer[] gazeFrames = new EyeGazeLayer[2];
@@ -46,10 +49,11 @@ namespace MakiseDesktopPet
         }
 
         internal IdleMotionAnimation(string directory, string manifestDirectory,
-            int height, bool enableGaze)
+            int height, bool enableGaze, bool useLocalBlink = false)
         {
             this.directory = directory;
             this.enableGaze = enableGaze;
+            this.useLocalBlink = useLocalBlink || !enableGaze;
             manifest = new JavaScriptSerializer().Deserialize<Manifest>(File.ReadAllText(
                 Path.Combine(manifestDirectory, "idle-motion.json")));
             if (manifest == null || manifest.canvas == null || manifest.canvas.Length != 2 ||
@@ -79,6 +83,27 @@ namespace MakiseDesktopPet
                 }
             if (manifest.gaze.maxShift[0] <= 0 || manifest.gaze.maxShift[1] <= 0)
                 throw new InvalidDataException("Invalid idle gaze range.");
+            if (enableGaze && this.useLocalBlink)
+            {
+                if (manifest.gaze.halfEyeCenters == null || manifest.gaze.halfEyeCenters.Length != 2 ||
+                    manifest.gaze.halfEyeApertures == null || manifest.gaze.halfEyeApertures.Length != 2)
+                    throw new InvalidDataException("Missing local half-blink gaze layout.");
+                for (int eye = 0; eye < 2; eye++)
+                {
+                    if (manifest.gaze.halfEyeCenters[eye] == null || manifest.gaze.halfEyeCenters[eye].Length != 2 ||
+                        manifest.gaze.halfEyeApertures[eye] == null || manifest.gaze.halfEyeApertures[eye].Length != 2)
+                        throw new InvalidDataException("Invalid half-blink eye region.");
+                    foreach (float[][] contour in manifest.gaze.halfEyeApertures[eye])
+                    {
+                        if (contour == null || contour.Length < 2)
+                            throw new InvalidDataException("Invalid half-blink contour.");
+                        for (int i = 0; i < contour.Length; i++)
+                            if (contour[i] == null || contour[i].Length != 2 ||
+                                (i > 0 && contour[i][0] <= contour[i - 1][0]))
+                                throw new InvalidDataException("Invalid half-blink contour point.");
+                    }
+                }
+            }
             try { Resize(height); }
             catch { Dispose(); throw; }
         }
@@ -86,20 +111,48 @@ namespace MakiseDesktopPet
         private Bitmap LoadScaled(string filename)
         {
             using (Bitmap original = new Bitmap(Path.Combine(directory, filename)))
+                return Scale(original);
+        }
+
+        private Bitmap Scale(Bitmap original)
+        {
+            if (original.Width != manifest.canvas[0] || original.Height != manifest.canvas[1])
+                throw new InvalidDataException("Idle canvas mismatch in " + directory);
+            Bitmap scaled = new Bitmap(Width, Height, PixelFormat.Format32bppPArgb);
+            using (Graphics g = Graphics.FromImage(scaled))
             {
-                if (original.Width != manifest.canvas[0] || original.Height != manifest.canvas[1])
-                    throw new InvalidDataException("Idle canvas mismatch: " + filename);
-                Bitmap scaled = new Bitmap(Width, Height, PixelFormat.Format32bppPArgb);
-                using (Graphics g = Graphics.FromImage(scaled))
-                {
-                    g.PageUnit = GraphicsUnit.Pixel;
-                    g.CompositingMode = CompositingMode.SourceCopy;
-                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                    g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                    g.DrawImage(original, new Rectangle(0, 0, Width, Height),
-                        0, 0, original.Width, original.Height, GraphicsUnit.Pixel);
-                }
-                return scaled;
+                g.PageUnit = GraphicsUnit.Pixel;
+                g.CompositingMode = CompositingMode.SourceCopy;
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                g.DrawImage(original, new Rectangle(0, 0, Width, Height),
+                    0, 0, original.Width, original.Height, GraphicsUnit.Pixel);
+            }
+            return scaled;
+        }
+
+        private Bitmap LoadLocalBlink(double opening)
+        {
+            LocalEyeBlink.Spec spec = new JavaScriptSerializer().Deserialize<LocalEyeBlink.Spec>(
+                File.ReadAllText(Path.Combine(directory, "idle-blink.json")));
+            using (Bitmap original = new Bitmap(Path.Combine(directory, "idle.png")))
+            using (Bitmap overlay = new LocalEyeBlink(original, spec).Create(opening))
+            {
+                // Touch only eye pixels. Drawing onto the entire PNG through GDI+
+                // can round translucent hair-edge colors even outside the overlay.
+                for (int y = 0; y < original.Height; y++)
+                    for (int x = 0; x < original.Width; x++)
+                    {
+                        Color eye = overlay.GetPixel(x, y);
+                        if (eye.A == 0) continue;
+                        Color face = original.GetPixel(x, y);
+                        double alpha = eye.A / 255.0;
+                        original.SetPixel(x, y, Color.FromArgb(face.A,
+                            ClampByte(eye.R * alpha + face.R * (1 - alpha)),
+                            ClampByte(eye.G * alpha + face.G * (1 - alpha)),
+                            ClampByte(eye.B * alpha + face.B * (1 - alpha))));
+                    }
+                return Scale(original);
             }
         }
 
@@ -109,15 +162,16 @@ namespace MakiseDesktopPet
             Height = height;
             Width = Math.Max(1, (int)Math.Round(height * (double)manifest.canvas[0] / manifest.canvas[1]));
             frames[0] = LoadScaled("idle.png");
-            frames[1] = LoadScaled("blink-half.png");
-            frames[2] = LoadScaled("blink.png");
+            frames[1] = useLocalBlink ? LoadLocalBlink(0.48) : LoadScaled("blink-half.png");
+            frames[2] = useLocalBlink ? LoadLocalBlink(0.08) : LoadScaled("blink.png");
             Size canvas = new Size(manifest.canvas[0], manifest.canvas[1]);
             Size size = new Size(Width, Height);
             Rectangle full = new Rectangle(0, 0, Width, Height);
             if (enableGaze)
                 for (int i = 0; i < gazeFrames.Length; i++)
                     gazeFrames[i] = new EyeGazeLayer(frames[i], full, canvas, size,
-                        manifest.gaze.eyeCenters, manifest.gaze.eyeApertures,
+                        i == 1 && useLocalBlink ? manifest.gaze.halfEyeCenters : manifest.gaze.eyeCenters,
+                        i == 1 && useLocalBlink ? manifest.gaze.halfEyeApertures : manifest.gaze.eyeApertures,
                         manifest.gaze.maxShift,
                         i == 0 ? 1 : 0.5);
             output = new Bitmap(Width, Height, PixelFormat.Format32bppPArgb);

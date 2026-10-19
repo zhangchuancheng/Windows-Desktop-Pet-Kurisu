@@ -21,7 +21,11 @@ powershell -ExecutionPolicy Bypass -File .\tests\run-step4.ps1
 | Step4Acceptance.cs | 后台状态、边缘布局、独立配置和真实三分钟入睡验收 |
 | MotionSmoke.cs | 早期实际窗口回归，执行时会显示测试角色，短暂使用鼠标捕获并备份/恢复用户配置 |
 | DragAnimationSmoke.cs | 七种角色尺寸（100–500 像素，含 355 像素）下单图拖拽形变的静止一致性、与待机及三张点击图的可见轮廓对齐、双向响应、停止回正、透明边缘和隐藏窗口状态检查；同时输出 80 张模拟鼠标轨迹的实际渲染帧到 `test-artifacts/drag-2d-preview-frames/` |
-| run-step4.ps1 | 默认入口，运行菜单、七套换装、待机、追视、点击素材、台词、连续点击、拖拽动画、睡眠呼吸和第 4 步后台检查；可指定单个测试名称运行 |
+| OutfitDragSmoke.cs | 七套服饰在 100/355/500 像素下检查泪滴、半闭眼、闭眼、睁眼后精确还原、身体静止和缩放；对照图输出到 `test-artifacts/outfit-drag/` |
+| OutfitIdleSmoke.cs | 统计七套旧眨眼图的身体差异；在 100/355/500 像素、四个呼吸时刻检查新局部眨眼的眼区外像素不变及睁眼精确还原；对照图在 `test-artifacts/outfit-idle/` |
+| OutfitGazeSmoke.cs | 七套服饰在 100/355/500 像素下检查九个追视方向、睁眼/半闭眼/闭眼、轮廓透明度不变、眼区外像素不变及精确回正；对照图在 `test-artifacts/outfit-gaze/` |
+| OutfitMenuInputSmoke.cs | 可选前台交互测试：另一个进程保持前台起点，使用系统鼠标输入从桌宠右键设置切换全部八种造型，覆盖置顶/置底共 16 次选择及 Esc、点击外部关闭；设置独立保存。运行期间会移动鼠标和切换前台窗口，未加入默认后台测试集。命令：`.\tests\run-step4.ps1 OutfitMenuInputSmoke` |
+| run-step4.ps1 | 默认入口，运行菜单、七套换装及其拖拽表情、待机、追视、点击素材、台词、连续点击、拖拽动画、睡眠呼吸和第 4 步后台检查；可指定单个测试名称运行 |
 | ChatSmoke.cs | 可选本机模型联通检查，验证偏好持久化、紧凑输入面板的 80%/150% 缩放、提示词和回复回退，并生成 `test-artifacts/chat-preview.png`、`chat-preferences-preview.png`；需要已启动 Ollama 和 `qwen3:4b-instruct` |
 | ChatContextSmoke.cs | 连续轮次超出短期历史后，检查用户明确事实仍进入模型请求并可被模型召回；同时检查保存偏好后的会话清空。需要本机 Ollama 与模型 |
 | encode-step4.py | 把后台测试帧编码为 GIF，需要 Python 和 Pillow |

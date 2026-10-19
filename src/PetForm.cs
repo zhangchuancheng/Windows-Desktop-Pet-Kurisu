@@ -145,17 +145,15 @@ namespace MakiseDesktopPet
             nextIdle = null;
             nextDrag = null;
             string spriteDirectory = OutfitCatalog.SpriteDirectory(appDirectory, id);
-            string originalDirectory = OutfitCatalog.SpriteDirectory(appDirectory,
-                OutfitCatalog.OriginalId);
             try
             {
                 nextSprites = new SpriteAssets(spriteDirectory, height);
                 nextIdle = id == OutfitCatalog.OriginalId
                     ? new IdleMotionAnimation(spriteDirectory, height)
-                    : new IdleMotionAnimation(spriteDirectory, originalDirectory, height, false);
-                if (id == OutfitCatalog.OriginalId)
-                    nextDrag = new DragWarpAnimation(spriteDirectory,
-                        nextSprites.Width, nextSprites.Height, EnableOriginalDragAnimation);
+                    : new IdleMotionAnimation(spriteDirectory, spriteDirectory, height, true, true);
+                nextDrag = new DragWarpAnimation(spriteDirectory,
+                    nextSprites.Width, nextSprites.Height,
+                    id == OutfitCatalog.OriginalId && EnableOriginalDragAnimation);
             }
             catch
             {
@@ -197,6 +195,7 @@ namespace MakiseDesktopPet
             BeginInvoke((MethodInvoker)delegate
             {
                 if (IsDisposed || !Visible) return;
+                NativeMethods.SetForegroundWindow(Handle);
                 outfitMenu.Show(pointer);
                 NativeMethods.SetWindowPos(outfitMenu.Handle, NativeMethods.HWND_TOPMOST,
                     0, 0, 0, 0, NativeMethods.SWP_NOMOVE |
@@ -478,6 +477,10 @@ namespace MakiseDesktopPet
             if (e.Button == MouseButtons.Right)
             {
                 Interact();
+                // The pet normally refuses activation. A user-opened menu needs
+                // a foreground owner, otherwise ToolStrip can dismiss it on
+                // AppFocusChange before the selection receives its mouse-up.
+                NativeMethods.SetForegroundWindow(Handle);
                 petMenu.ShowAt(Cursor.Position, settings.Height, settings.TopMost,
                     settings.UiScalePercent, OutfitCatalog.DisplayName(outfitId));
                 return;

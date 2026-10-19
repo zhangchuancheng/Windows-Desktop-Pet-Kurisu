@@ -155,6 +155,12 @@ namespace MakiseDesktopPet
                                 id + "/" + pose);
                     Require(Read(pet, "idleAnimation") != null,
                         "Outfit idle animation was not recreated: " + id);
+                    Require((bool)Read(Read(pet, "idleAnimation"), "enableGaze") &&
+                        (bool)Read(Read(pet, "idleAnimation"), "useLocalBlink"),
+                        "Outfit must enable tracking and preserve local blinking: " + id);
+                    Require(Read(pet, "dragAnimation") != null &&
+                        !(bool)Read(Read(pet, "dragAnimation"), "deformBody"),
+                        "Outfit should animate eyes and tears with a static body: " + id);
                     Require(!pet.Visible, "Outfit test unexpectedly showed the pet window");
                     Console.WriteLine("PASS: " + id + " loaded every pose and persisted");
                 }

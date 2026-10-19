@@ -109,6 +109,9 @@ namespace MakiseDesktopPet
         [DllImport("user32.dll", SetLastError = true)]
         internal static extern bool GetPhysicalCursorPos(out Point position);
 
+        [DllImport("user32.dll")]
+        internal static extern bool SetForegroundWindow(IntPtr window);
+
         [DllImport("user32.dll", SetLastError = true)]
         internal static extern bool SetWindowPos(
             IntPtr hwnd, IntPtr insertAfter, int x, int y,

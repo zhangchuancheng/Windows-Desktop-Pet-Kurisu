@@ -1,0 +1,37 @@
+{
+  "image": "drag-base.png",
+  "canvas": [
+    1024,
+    1402
+  ],
+  "tearOrigins": [
+    [
+      402,
+      536
+    ],
+    [
+      665,
+      504
+    ]
+  ],
+  "placement": {
+    "widthRatio": 1.0,
+    "heightRatio": 1.0,
+    "offsetXRatio": 0.0,
+    "topRatio": 0.0
+  },
+  "eyeTransforms": [
+    [
+      0.98,
+      0.96,
+      12,
+      42
+    ],
+    [
+      0.96,
+      0.97,
+      24,
+      35
+    ]
+  ]
+}
