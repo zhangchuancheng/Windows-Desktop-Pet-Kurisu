@@ -29,6 +29,11 @@ namespace MakiseDesktopPet
 
         private const int MotionFrameMs = 16;
         private readonly Layout layout;
+        private readonly bool deformBody;
+        private readonly Bitmap[] blinkEyes = new Bitmap[2];
+        private readonly Random blinkRandom = new Random();
+        private long blinkCycle = -1;
+        private bool doubleBlink;
         private readonly Bitmap source;
         private Bitmap baseFrame;
         private Bitmap output;
@@ -50,8 +55,9 @@ namespace MakiseDesktopPet
         private float drawLeft;
         private float drawTop;
 
-        internal DragWarpAnimation(string directory, int width, int height)
+        internal DragWarpAnimation(string directory, int width, int height, bool deformBody = true)
         {
+            this.deformBody = deformBody;
             layout = new JavaScriptSerializer().Deserialize<Layout>(File.ReadAllText(
                 Path.Combine(directory, "drag-warp.json")));
             if (layout == null || string.IsNullOrEmpty(layout.image) || layout.canvas == null ||
@@ -65,13 +71,97 @@ namespace MakiseDesktopPet
                 Math.Abs(layout.placement.offsetXRatio) > 0.2 ||
                 Math.Abs(layout.placement.topRatio) > 0.2)
                 throw new InvalidDataException("Invalid drag warp layout.");
-            string path = Path.Combine(directory, layout.image);
+            string path = Path.Combine(directory, deformBody ? layout.image : "drag.png");
             using (Bitmap loaded = new Bitmap(path))
                 source = loaded.Clone(new Rectangle(Point.Empty, loaded.Size), PixelFormat.Format32bppArgb);
             if (source.Width != layout.canvas[0] || source.Height != layout.canvas[1] ||
                 source.Width < 32 || source.Height < 32)
                 throw new InvalidDataException("Drag image does not match its declared canvas.");
+            if (!deformBody)
+            {
+                blinkEyes[0] = CreateBlinkEyes(0.48);
+                blinkEyes[1] = CreateBlinkEyes(0.08);
+            }
             Resize(width, height);
+        }
+
+        private static double ContourY(Point[] contour, int x)
+        {
+            for (int i = 1; i < contour.Length; i++)
+                if (x <= contour[i].X)
+                {
+                    double t = (x - contour[i - 1].X) / (double)(contour[i].X - contour[i - 1].X);
+                    return contour[i - 1].Y + t * (contour[i].Y - contour[i - 1].Y);
+                }
+            return contour[contour.Length - 1].Y;
+        }
+
+        private Bitmap CreateBlinkEyes(double opening)
+        {
+            Bitmap overlay = new Bitmap(source.Width, source.Height, PixelFormat.Format32bppArgb);
+            // Include the complete lashes and corners of the drag drawing itself.
+            Point[][] tops = {
+                new[] { new Point(338,449), new Point(361,443), new Point(400,440),
+                    new Point(438,441), new Point(466,451), new Point(485,473) },
+                new[] { new Point(568,449), new Point(585,430), new Point(619,416),
+                    new Point(660,405), new Point(690,401), new Point(714,405) }
+            };
+            Point[][] bottoms = {
+                new[] { new Point(338,451), new Point(361,490), new Point(400,522),
+                    new Point(438,522), new Point(466,509), new Point(485,473) },
+                new[] { new Point(568,449), new Point(585,483), new Point(619,501),
+                    new Point(660,498), new Point(690,473), new Point(714,405) }
+            };
+            for (int eye = 0; eye < tops.Length; eye++)
+            {
+                Point[] top = tops[eye], bottom = bottoms[eye];
+                Color fallback = source.GetPixel(eye == 0 ? 435 : 645, eye == 0 ? 430 : 397);
+                Color cheek = source.GetPixel(eye == 0 ? 435 : 645, eye == 0 ? 535 : 515);
+                for (int x = top[0].X; x <= top[top.Length - 1].X; x++)
+                {
+                    double upper = ContourY(top, x), lower = ContourY(bottom, x);
+                    double closedLine = upper + (lower - upper) * 0.78;
+                    double newTop = closedLine + (upper - closedLine) * opening;
+                    double newBottom = closedLine + (lower - closedLine) * opening;
+                    for (int y = (int)upper - 2; y <= (int)Math.Ceiling(lower) + 2; y++)
+                    {
+                        double blend = Math.Max(0, Math.Min(1, (y - upper) / Math.Max(1, lower - upper)));
+                        Color color = Color.FromArgb(
+                            (int)(fallback.R + (cheek.R - fallback.R) * blend),
+                            (int)(fallback.G + (cheek.G - fallback.G) * blend),
+                            (int)(fallback.B + (cheek.B - fallback.B) * blend));
+                        if (opening > 0.1 && y >= newTop && y <= newBottom)
+                        {
+                            int sampleY = (int)Math.Round(closedLine + (y - closedLine) / opening);
+                            color = source.GetPixel(x, Math.Max(0, Math.Min(source.Height - 1, sampleY)));
+                        }
+                        double edge = Math.Min(y - (upper - 3), lower + 3 - y);
+                        int alpha = (int)(255 * SmoothStep(0, 2, edge));
+                        overlay.SetPixel(x, y, Color.FromArgb(alpha, color.R, color.G, color.B));
+                    }
+                }
+            }
+            if (opening <= 0.1)
+                using (Graphics g = Graphics.FromImage(overlay))
+                using (Pen lashes = new Pen(Color.FromArgb(35, 32, 39), 7))
+                {
+                    g.SmoothingMode = SmoothingMode.AntiAlias;
+                    lashes.StartCap = lashes.EndCap = LineCap.Round;
+                    g.DrawBezier(lashes, 349, 485, 378, 509, 442, 512, 477, 487);
+                    g.DrawBezier(lashes, 577, 465, 614, 491, 666, 483, 706, 444);
+                }
+            return overlay;
+        }
+
+        internal static int DragBlinkEye(long elapsed, bool doubleBlink = false)
+        {
+            // Blink every 2.8 seconds; reopen just before a tear drops.
+            long phase = Math.Max(0, elapsed) % 2800;
+            const long start = 1240;
+            int eyes = IdleMotionAnimation.EyeForBlink(phase, start, start + 220);
+            if (eyes != 0 || !doubleBlink) return eyes;
+            // Briefly reopen before a quicker second blink.
+            return IdleMotionAnimation.EyeForBlink(phase, start + 330, start + 510);
         }
 
         private static double SmoothStep(double low, double high, double value)
@@ -170,6 +260,8 @@ namespace MakiseDesktopPet
 
         internal void ResetMotion(Point pointer)
         {
+            blinkCycle = -1;
+            doubleBlink = false;
             Array.Clear(position, 0, position.Length);
             Array.Clear(velocity, 0, velocity.Length);
             latestPointer = sampledPointer = pointer;
@@ -265,13 +357,32 @@ namespace MakiseDesktopPet
                 -4.5 * horizontal, 4.5 * horizontal,
                 -7 * horizontal, -8 * horizontal, -5 * horizontal, -6 * horizontal
             };
-            Advance(target, dt);
-            Warp();
+            if (deformBody)
+            {
+                Advance(target, dt);
+                Warp();
+            }
+            else
+                Buffer.BlockCopy(sourcePixels, 0, pixels, 0, pixels.Length);
             WritePixels();
             using (Graphics g = Graphics.FromImage(output))
             {
                 g.CompositingMode = CompositingMode.SourceOver;
                 g.SmoothingMode = SmoothingMode.AntiAlias;
+                if (!deformBody && elapsed / 2800 != blinkCycle)
+                {
+                    blinkCycle = elapsed / 2800;
+                    doubleBlink = blinkRandom.Next(100) < 30;
+                }
+                int eyes = deformBody ? 0 : DragBlinkEye(elapsed, doubleBlink);
+                if (eyes != 0)
+                {
+                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                    g.DrawImage(blinkEyes[eyes - 1],
+                        new RectangleF(drawLeft, drawTop, source.Width * scaleX, source.Height * scaleY),
+                        new RectangleF(0, 0, source.Width, source.Height), GraphicsUnit.Pixel);
+                }
                 DrawTear(g, 0, elapsed, 100);
                 DrawTear(g, 1, elapsed, 730);
             }
@@ -284,7 +395,8 @@ namespace MakiseDesktopPet
 
         private void DrawTear(Graphics g, int side, long elapsed, int start)
         {
-            const int cycle = 1400, duration = 540;
+            const int cycle = 1400;
+            const int duration = 540;
             if (elapsed < start) return;
             double progress = ((elapsed - start) % cycle) / (double)duration;
             if (progress <= 0 || progress >= 1) return;
@@ -307,6 +419,7 @@ namespace MakiseDesktopPet
         {
             if (baseFrame != null) baseFrame.Dispose();
             if (output != null) output.Dispose();
+            foreach (Bitmap eyes in blinkEyes) if (eyes != null) eyes.Dispose();
             source.Dispose();
         }
     }

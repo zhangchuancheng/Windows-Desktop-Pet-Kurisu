@@ -13,6 +13,8 @@ namespace MakiseDesktopPet
         private const int BubbleDurationMs = 5000;
         private const int DragThresholdPx = 6;
         private const int RapidReleaseMs = 1200;
+        // Retain the original warp renderer for optional restoration.
+        private static readonly bool EnableOriginalDragAnimation = false;
         private static readonly Pose[] ClickPoses =
             { Pose.PokeBlock, Pose.PokeFold, Pose.PokeCheek };
         private readonly string appDirectory;
@@ -153,7 +155,7 @@ namespace MakiseDesktopPet
                     : new IdleMotionAnimation(spriteDirectory, originalDirectory, height, false);
                 if (id == OutfitCatalog.OriginalId)
                     nextDrag = new DragWarpAnimation(spriteDirectory,
-                        nextSprites.Width, nextSprites.Height);
+                        nextSprites.Width, nextSprites.Height, EnableOriginalDragAnimation);
             }
             catch
             {

@@ -124,6 +124,8 @@ namespace MakiseDesktopPet
                 Write(store, "PathOnDisk", isolated);
                 if (File.Exists(isolated)) File.Delete(isolated);
                 PetSettings settings = (PetSettings)Read(pet, "settings");
+                // Start independently of the user's saved outfit, after isolating writes.
+                Call(pet, "ChangeOutfit", OutfitCatalog.OriginalId);
                 ContextMenuStrip outfitMenu = (ContextMenuStrip)Read(pet, "outfitMenu");
                 Require(outfitMenu.Items.Count == expectedIds.Length + 1,
                     "Outfit picker should list original plus seven outfits");
@@ -193,6 +195,17 @@ namespace MakiseDesktopPet
                     store.Load().OutfitId == OutfitCatalog.OriginalId,
                     "Picker could not switch from battle suit back to original");
                 Console.WriteLine("PASS: battle suit returned to original through picker");
+                Require(Read(pet, "dragAnimation") != null &&
+                    !(bool)Read(Read(pet, "dragAnimation"), "deformBody"),
+                    "Original should animate tears without deforming its body");
+                Call(pet, "SetPose", Pose.Drag);
+                using (SpriteAssets expected = new SpriteAssets(
+                    OutfitCatalog.SpriteDirectory(runtimeRoot, OutfitCatalog.OriginalId),
+                    settings.Height))
+                    SameBitmap((Bitmap)Call(pet, "CurrentFrame"), expected.Get(Pose.Drag),
+                        "original static drag");
+                Call(pet, "SetPose", Pose.Idle);
+                Console.WriteLine("PASS: original uses its static drag pose with tear-only animation");
 
                 ((ToolStripMenuItem)outfitMenu.Items[expectedIds.Length]).PerformClick();
                 Call(pet, "ChangeOutfit", "unlisted-outfit");

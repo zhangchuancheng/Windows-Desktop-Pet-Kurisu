@@ -85,6 +85,77 @@ namespace MakiseDesktopPet
             NativeMethods.SetProcessDpiAwarenessContext(new IntPtr(-4));
             string output = Path.Combine(root, "test-artifacts", "drag-warp-runtime");
             Directory.CreateDirectory(output);
+            Check(DragWarpAnimation.DragBlinkEye(1320, true) == 2 &&
+                DragWarpAnimation.DragBlinkEye(1500, true) == 0 &&
+                DragWarpAnimation.DragBlinkEye(1570, true) == 1 &&
+                DragWarpAnimation.DragBlinkEye(1630, true) == 2 &&
+                DragWarpAnimation.DragBlinkEye(1730, true) == 1 &&
+                DragWarpAnimation.DragBlinkEye(1750, true) == 0 &&
+                DragWarpAnimation.DragBlinkEye(1630, false) == 0,
+                "Occasional double blink must reopen between blinks and finish open");
+            foreach (int size in new[] { 100, 220, 355, 500 })
+            using (SpriteAssets assets = new SpriteAssets(Path.Combine(root, "assets", "sprites"), size))
+            using (DragWarpAnimation tears = new DragWarpAnimation(
+                Path.Combine(root, "assets", "sprites"), assets.Width, size, false))
+            {
+                bool changed;
+                Bitmap[] eyeOverlays = (Bitmap[])Read(tears, "blinkEyes");
+                foreach (Bitmap eyeOverlay in eyeOverlays)
+                    foreach (Point corner in new[] { new Point(365, 450), new Point(690, 415) })
+                    {
+                        Color cleared = eyeOverlay.GetPixel(corner.X, corner.Y);
+                        Check(cleared.A == 255 && cleared.R > 180 && cleared.G > 130,
+                            "Original upper lashes must be fully covered during a blink");
+                    }
+                using (Bitmap baseline = (Bitmap)tears.Render(0, out changed).Clone())
+                {
+                    double previousY = -1;
+                    foreach (int time in new[] { 240, 460 })
+                    {
+                        tears.ObservePointer(new Point(time, -time));
+                        Bitmap frame = tears.Render(time, out changed);
+                        int count = 0;
+                        double totalY = 0;
+                        for (int y = 0; y < frame.Height; y++)
+                            for (int x = 0; x < frame.Width; x++)
+                                if (frame.GetPixel(x, y) != baseline.GetPixel(x, y))
+                                {
+                                    Check(x > frame.Width * 0.33 && x < frame.Width * 0.44 &&
+                                        y > size * 0.35 && y < size * 0.48,
+                                        "Tear-only mode changed pixels outside the tear path");
+                                    count++;
+                                    totalY += y;
+                                }
+                        Check(count > 0, "Tears are missing");
+                        double centerY = totalY / count;
+                        Check(centerY > previousY, "Tear did not descend over time");
+                        previousY = centerY;
+                        if (size == 355) frame.Save(Path.Combine(output,
+                            "tear-only-" + time + ".png"), ImageFormat.Png);
+                    }
+                    foreach (int time in new[] { 1320, 1440 })
+                    {
+                        Bitmap frame = tears.Render(time, out changed);
+                        Check(Hash(frame) != Hash(baseline), "Drag blink did not change the eyes");
+                        for (int y = 0; y < frame.Height; y++)
+                            for (int x = 0; x < frame.Width; x++)
+                                if (frame.GetPixel(x, y) != baseline.GetPixel(x, y))
+                                    Check(y > size * 0.27 && y < size * 0.39 &&
+                                        ((x > frame.Width * 0.31 && x < frame.Width * 0.49) ||
+                                         (x > frame.Width * 0.54 && x < frame.Width * 0.72)),
+                                        "Blink changed pixels outside the eyes");
+                        if (size == 355) frame.Save(Path.Combine(output,
+                            "drag-blink-" + time + ".png"), ImageFormat.Png);
+                    }
+                    Check(Hash(tears.Render(1460, out changed)) == Hash(baseline),
+                        "Blink failed to restore the exact drag pose");
+                    Check(DragWarpAnimation.DragBlinkEye(4040) == 1 &&
+                        DragWarpAnimation.DragBlinkEye(4100) == 2 &&
+                        DragWarpAnimation.DragBlinkEye(4260) == 0,
+                        "Second occasional blink timing is wrong");
+                }
+                Console.WriteLine("PASS: " + size + "px tears descend without body movement.");
+            }
             foreach (int size in new[] { 100, 160, 220, 280, 340, 355, 500 })
             using (SpriteAssets assets = new SpriteAssets(Path.Combine(root, "assets", "sprites"), size))
             using (DragWarpAnimation drag = new DragWarpAnimation(Path.Combine(root, "assets", "sprites"), assets.Width, size))
@@ -212,11 +283,12 @@ namespace MakiseDesktopPet
                     Stopwatch uploadWatch = Stopwatch.StartNew();
                     for (int i = 0; i < 80; i++)
                     {
-                        engine.ObservePointer(new Point(pointer.X + i * 4, pointer.Y + i % 3));
+                        if (engine != null)
+                            engine.ObservePointer(new Point(pointer.X + i * 4, pointer.Y + i % 3));
                         Call(pet, "RenderMotion", uploadStart + i * 16L, true);
                     }
                     uploadWatch.Stop();
-                    Console.WriteLine("500 px warp plus hidden window upload average: " +
+                    Console.WriteLine("500 px drag plus hidden window upload average: " +
                         (uploadWatch.Elapsed.TotalMilliseconds / 80).ToString("F2") + " ms/frame");
                     Console.WriteLine("PASS: hidden form threshold, four directions, release and click separation.");
                 }
