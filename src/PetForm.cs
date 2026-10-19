@@ -15,9 +15,10 @@ namespace MakiseDesktopPet
         private const int RapidReleaseMs = 1200;
         private static readonly Pose[] ClickPoses =
             { Pose.PokeBlock, Pose.PokeFold, Pose.PokeCheek };
+        private readonly string appDirectory;
         private readonly SettingsStore settingsStore;
         private readonly PetSettings settings;
-        private readonly SpriteAssets sprites;
+        private SpriteAssets sprites;
         private readonly Dialogues dialogues;
         private readonly BubbleForm bubble;
         private readonly OllamaChatClient chatClient;
@@ -25,6 +26,7 @@ namespace MakiseDesktopPet
         private readonly NotifyIcon tray;
         private readonly Icon trayIcon;
         private readonly PetMenuPopup petMenu;
+        private readonly ContextMenuStrip outfitMenu;
         private readonly ContextMenuStrip trayMenu;
         private readonly Timer timer;
         private readonly Stopwatch clock = Stopwatch.StartNew();
@@ -32,9 +34,10 @@ namespace MakiseDesktopPet
         private readonly Queue<long> recentClicks = new Queue<long>();
         private readonly PetMotion motion = new PetMotion();
         private readonly SleepAnimation sleepAnimation = new SleepAnimation();
-        private readonly DragWarpAnimation dragAnimation;
-        private readonly LayeredIdleAnimation layeredIdle;
+        private DragWarpAnimation dragAnimation;
+        private IdleMotionAnimation idleAnimation;
         private readonly GazeMotion gaze = new GazeMotion();
+        private string outfitId;
 
         private Pose pose = Pose.Idle;
         private int nextClickPose;
@@ -65,11 +68,23 @@ namespace MakiseDesktopPet
         internal PetForm(string directory)
             : base(false)
         {
+            appDirectory = directory;
             settingsStore = new SettingsStore();
             settings = settingsStore.Load();
-            sprites = new SpriteAssets(System.IO.Path.Combine(directory, "assets", "sprites"), settings.Height);
-            dragAnimation = new DragWarpAnimation(System.IO.Path.Combine(directory, "assets", "sprites"), sprites.Width, sprites.Height);
-            layeredIdle = new LayeredIdleAnimation(System.IO.Path.Combine(directory, "assets", "layers", "idle-v1"), settings.Height);
+            outfitId = OutfitCatalog.Normalize(settings.OutfitId);
+            try
+            {
+                CreateOutfitResources(outfitId, settings.Height,
+                    out sprites, out idleAnimation, out dragAnimation);
+            }
+            catch
+            {
+                if (outfitId == OutfitCatalog.OriginalId) throw;
+                outfitId = OutfitCatalog.OriginalId;
+                CreateOutfitResources(outfitId, settings.Height,
+                    out sprites, out idleAnimation, out dragAnimation);
+            }
+            settings.OutfitId = outfitId;
             dialogues = new Dialogues(System.IO.Path.Combine(directory, "dialogues.json"));
             bubble = new BubbleForm();
             chatClient = new OllamaChatClient(directory);
@@ -89,10 +104,11 @@ namespace MakiseDesktopPet
             baseY = settings.Y;
             ClampToVisibleScreen();
             Location = new Point(baseX, baseY);
-            layeredIdle.Enter(clock.ElapsedMilliseconds);
+            idleAnimation.Enter(clock.ElapsedMilliseconds);
             RenderMotion(clock.ElapsedMilliseconds, true);
 
             petMenu = BuildPetMenu();
+            outfitMenu = BuildOutfitMenu();
             trayMenu = BuildTrayMenu();
             trayIcon = CreateTrayIcon(directory);
             Icon = trayIcon;
@@ -115,8 +131,151 @@ namespace MakiseDesktopPet
         {
             return new PetMenuPopup(
                 delegate(int height) { ApplySize(height); }, SaveSettings, ChangeLayer,
-                ChangeUiScale, ChangeDialogue, OpenChat, OpenChatPreferences,
+                ChangeUiScale, ChangeDialogue, OpenOutfitPicker, OpenChat, OpenChatPreferences,
                 HideToTray, Close, KeepAtBottom);
+        }
+
+        private void CreateOutfitResources(string id, int height,
+            out SpriteAssets nextSprites, out IdleMotionAnimation nextIdle,
+            out DragWarpAnimation nextDrag)
+        {
+            nextSprites = null;
+            nextIdle = null;
+            nextDrag = null;
+            string spriteDirectory = OutfitCatalog.SpriteDirectory(appDirectory, id);
+            string originalDirectory = OutfitCatalog.SpriteDirectory(appDirectory,
+                OutfitCatalog.OriginalId);
+            try
+            {
+                nextSprites = new SpriteAssets(spriteDirectory, height);
+                nextIdle = id == OutfitCatalog.OriginalId
+                    ? new IdleMotionAnimation(spriteDirectory, height)
+                    : new IdleMotionAnimation(spriteDirectory, originalDirectory, height, false);
+                if (id == OutfitCatalog.OriginalId)
+                    nextDrag = new DragWarpAnimation(spriteDirectory,
+                        nextSprites.Width, nextSprites.Height);
+            }
+            catch
+            {
+                if (nextDrag != null) nextDrag.Dispose();
+                if (nextIdle != null) nextIdle.Dispose();
+                if (nextSprites != null) nextSprites.Dispose();
+                nextDrag = null;
+                nextIdle = null;
+                nextSprites = null;
+                throw;
+            }
+        }
+
+        private ContextMenuStrip BuildOutfitMenu()
+        {
+            ContextMenuStrip menu = new ContextMenuStrip();
+            foreach (OutfitCatalog.Outfit outfit in OutfitCatalog.All)
+            {
+                string selectedId = outfit.Id;
+                ToolStripMenuItem item = new ToolStripMenuItem(outfit.Name);
+                item.Tag = selectedId;
+                item.Click += delegate { ChangeOutfit(selectedId); };
+                menu.Items.Add(item);
+            }
+            menu.Opening += delegate
+            {
+                foreach (ToolStripMenuItem item in menu.Items)
+                    item.Checked = (string)item.Tag == outfitId;
+            };
+            return menu;
+        }
+
+        private void OpenOutfitPicker()
+        {
+            Interact();
+            Point pointer = Cursor.Position;
+            // Let the settings popup finish its mouse-up and close sequence
+            // before showing another dropdown from this no-activate window.
+            BeginInvoke((MethodInvoker)delegate
+            {
+                if (IsDisposed || !Visible) return;
+                outfitMenu.Show(pointer);
+                NativeMethods.SetWindowPos(outfitMenu.Handle, NativeMethods.HWND_TOPMOST,
+                    0, 0, 0, 0, NativeMethods.SWP_NOMOVE |
+                    NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE);
+            });
+        }
+
+        private void ChangeOutfit(string selectedId)
+        {
+            selectedId = OutfitCatalog.Normalize(selectedId);
+            if (selectedId == outfitId) return;
+            SpriteAssets nextSprites;
+            IdleMotionAnimation nextIdle;
+            DragWarpAnimation nextDrag;
+            try
+            {
+                CreateOutfitResources(selectedId, settings.Height,
+                    out nextSprites, out nextIdle, out nextDrag);
+            }
+            catch (Exception error)
+            {
+                MessageBox.Show("服装素材加载失败，已保留当前服装。\n" + error.Message,
+                    "切换服装", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            SpriteAssets previousSprites = sprites;
+            IdleMotionAnimation previousIdle = idleAnimation;
+            DragWarpAnimation previousDrag = dragAnimation;
+            string previousId = outfitId;
+            Pose previousPose = pose;
+            bool wasSleeping = sleeping;
+            try
+            {
+                sprites = nextSprites;
+                idleAnimation = nextIdle;
+                dragAnimation = nextDrag;
+                outfitId = selectedId;
+                settings.OutfitId = selectedId;
+                pressed = dragging = sleeping = false;
+                Capture = false;
+                recentClicks.Clear();
+                motion.Reset();
+                sleepAnimation.Reset();
+                poseUntil = blinkUntil = rapidPoseUntil = 0;
+                pose = Pose.Idle;
+                long now = clock.ElapsedMilliseconds;
+                idleAnimation.Enter(now);
+                ScheduleBlink(now);
+                ClampToVisibleScreen();
+                Location = new Point(baseX, baseY);
+                RenderMotion(now, true);
+                if (bubble.Visible)
+                {
+                    if (bubbleFromChat) LayoutChatBubble();
+                    else LayoutBubble();
+                }
+                KeepAtBottom();
+                SaveSettings();
+            }
+            catch (Exception error)
+            {
+                sprites = previousSprites;
+                idleAnimation = previousIdle;
+                dragAnimation = previousDrag;
+                outfitId = previousId;
+                settings.OutfitId = previousId;
+                pose = previousPose;
+                sleeping = wasSleeping;
+                RenderMotion(clock.ElapsedMilliseconds, true);
+                if (nextDrag != null) nextDrag.Dispose();
+                nextIdle.Dispose();
+                nextSprites.Dispose();
+                MessageBox.Show("切换服装失败，已恢复当前服装。\n" + error.Message,
+                    "切换服装", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            if (previousDrag != null) previousDrag.Dispose();
+            previousIdle.Dispose();
+            previousSprites.Dispose();
+            Interact();
         }
 
         private void ChangeUiScale(int percent)
@@ -166,6 +325,22 @@ namespace MakiseDesktopPet
                 else RestoreFromTray();
             };
             menu.Items.Add(visibility);
+            ToolStripMenuItem outfits = new ToolStripMenuItem("切换服装");
+            outfits.Tag = "outfit-picker";
+            foreach (OutfitCatalog.Outfit outfit in OutfitCatalog.All)
+            {
+                string selectedId = outfit.Id;
+                ToolStripMenuItem item = new ToolStripMenuItem(outfit.Name);
+                item.Tag = selectedId;
+                item.Click += delegate { ChangeOutfit(selectedId); };
+                outfits.DropDownItems.Add(item);
+            }
+            outfits.DropDownOpening += delegate
+            {
+                foreach (ToolStripMenuItem item in outfits.DropDownItems)
+                    item.Checked = (string)item.Tag == outfitId;
+            };
+            menu.Items.Add(outfits);
             menu.Items.Add("聊两句", null, delegate { OpenChat(); });
             menu.Items.Add("聊天偏好", null, delegate { OpenChatPreferences(); });
             menu.Items.Add("退出", null, delegate { Close(); });
@@ -231,7 +406,7 @@ namespace MakiseDesktopPet
 
         private void UpdateDragPosition(Point pointer)
         {
-            dragAnimation.ObservePointer(pointer);
+            if (dragAnimation != null) dragAnimation.ObservePointer(pointer);
             int targetX = pressBase.X + pointer.X - pressPoint.X;
             int targetY = pressBase.Y + pointer.Y - pressPoint.Y;
             if (targetX == lastDragTarget.X && targetY == lastDragTarget.Y) return;
@@ -252,6 +427,11 @@ namespace MakiseDesktopPet
         {
             if (pose == Pose.Drag)
             {
+                if (dragAnimation == null)
+                {
+                    if (force) SetFrame(CurrentFrame());
+                    return;
+                }
                 bool dragChanged;
                 Bitmap dragFrame = dragAnimation.Render(now - dragStarted, out dragChanged);
                 if (dragChanged || force) SetFrame(dragFrame);
@@ -259,9 +439,9 @@ namespace MakiseDesktopPet
             }
             if (pose == Pose.Idle || pose == Pose.Blink)
             {
-                int eyes = pose == Pose.Blink ? LayeredIdleAnimation.EyeForBlink(now, blinkStarted, blinkUntil) : 0;
+                int eyes = pose == Pose.Blink ? IdleMotionAnimation.EyeForBlink(now, blinkStarted, blinkUntil) : 0;
                 bool updated;
-                Bitmap idleFrame = layeredIdle.Render(now, eyes,
+                Bitmap idleFrame = idleAnimation.Render(now, eyes,
                     gaze.EyeX, gaze.EyeY, gaze.HeadX, gaze.HeadY, out updated);
                 if (updated || force) SetFrame(idleFrame);
                 return;
@@ -297,7 +477,7 @@ namespace MakiseDesktopPet
             {
                 Interact();
                 petMenu.ShowAt(Cursor.Position, settings.Height, settings.TopMost,
-                    settings.UiScalePercent);
+                    settings.UiScalePercent, OutfitCatalog.DisplayName(outfitId));
                 return;
             }
             if (e.Button != MouseButtons.Left || !pressed) return;
@@ -390,12 +570,13 @@ namespace MakiseDesktopPet
                 rapidPoseUntil = 0;
                 recentClicks.Clear();
             }
-            if (next == Pose.Idle && pose != Pose.Blink) layeredIdle.Enter(clock.ElapsedMilliseconds);
+            if (next == Pose.Idle && pose != Pose.Blink) idleAnimation.Enter(clock.ElapsedMilliseconds);
             if (next == Pose.Sleep) sleepStarted = clock.ElapsedMilliseconds;
             if (next == Pose.Drag)
             {
                 dragStarted = clock.ElapsedMilliseconds;
-                dragAnimation.ResetMotion(PhysicalMousePosition());
+                if (dragAnimation != null)
+                    dragAnimation.ResetMotion(PhysicalMousePosition());
             }
             pose = next;
             RenderMotion(clock.ElapsedMilliseconds, true);
@@ -650,8 +831,8 @@ namespace MakiseDesktopPet
             motion.Reset();
             sleepAnimation.Reset();
             sprites.Resize(height);
-            dragAnimation.Resize(sprites.Width, sprites.Height);
-            layeredIdle.Resize(height);
+            if (dragAnimation != null) dragAnimation.Resize(sprites.Width, sprites.Height);
+            idleAnimation.Resize(height);
             RenderMotion(clock.ElapsedMilliseconds, true);
             ClampToVisibleScreen();
             Location = new Point(baseX, baseY);
@@ -738,6 +919,7 @@ namespace MakiseDesktopPet
             tray.Dispose();
             trayIcon.Dispose();
             petMenu.Dispose();
+            outfitMenu.Dispose();
             trayMenu.Dispose();
             chat.Dispose();
             chatClient.Dispose();
@@ -746,8 +928,8 @@ namespace MakiseDesktopPet
             timer.Dispose();
             motion.Dispose();
             sleepAnimation.Dispose();
-            dragAnimation.Dispose();
-            layeredIdle.Dispose();
+            if (dragAnimation != null) dragAnimation.Dispose();
+            idleAnimation.Dispose();
             sprites.Dispose();
             base.OnFormClosed(e);
         }

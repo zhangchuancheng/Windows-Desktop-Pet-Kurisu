@@ -104,8 +104,8 @@ namespace MakiseDesktopPet
                 {
                     rest.Save(Path.Combine(output, "rest-355.png"), ImageFormat.Png);
                     assets.Get(Pose.PokeFold).Save(Path.Combine(output, "click-355.png"), ImageFormat.Png);
-                    using (LayeredIdleAnimation idle = new LayeredIdleAnimation(
-                        Path.Combine(root, "assets", "layers", "idle-v1"), size))
+                    using (IdleMotionAnimation idle = new IdleMotionAnimation(
+                        Path.Combine(root, "assets", "sprites"), size))
                     {
                         idle.Enter(0);
                         bool idleChanged;
@@ -141,6 +141,21 @@ namespace MakiseDesktopPet
                 Check(Math.Abs(((double[])Read(drag, "position"))[0]) < 0.15,
                     "Motion did not settle when pointer stopped");
                 if (size == 340) drag.Render(1360, out changed).Save(Path.Combine(output, "settled-340.png"), ImageFormat.Png);
+                if (size == 340)
+                {
+                    string preview = Path.Combine(root, "test-artifacts", "drag-2d-preview-frames");
+                    Directory.CreateDirectory(preview);
+                    drag.ResetMotion(Point.Empty);
+                    for (int i = 0; i < 80; i++)
+                    {
+                        double angle = i * Math.PI * 2 / 32;
+                        Point pointer = new Point((int)Math.Round(130 * Math.Sin(angle)),
+                            (int)Math.Round(25 * Math.Sin(i * Math.PI * 2 / 48)));
+                        drag.ObservePointer(pointer);
+                        drag.Render(i * 32, out changed).Save(
+                            Path.Combine(preview, i.ToString("D3") + ".png"), ImageFormat.Png);
+                    }
+                }
                 if (size == 500)
                 {
                     drag.ResetMotion(Point.Empty);
@@ -201,7 +216,7 @@ namespace MakiseDesktopPet
                         Call(pet, "RenderMotion", uploadStart + i * 16L, true);
                     }
                     uploadWatch.Stop();
-                    Console.WriteLine("500 px warp plus hidden layered upload average: " +
+                    Console.WriteLine("500 px warp plus hidden window upload average: " +
                         (uploadWatch.Elapsed.TotalMilliseconds / 80).ToString("F2") + " ms/frame");
                     Console.WriteLine("PASS: hidden form threshold, four directions, release and click separation.");
                 }

@@ -9,22 +9,28 @@ if (-not (Test-Path -LiteralPath $compiler)) {
 }
 
 $spriteDir = Join-Path $projectRoot 'assets\sprites'
-$spriteFiles = @('idle.png', 'blink.png', 'poke-block.png', 'poke-fold.png',
+$spriteFiles = @('idle.png', 'blink-half.png', 'blink.png', 'poke-block.png', 'poke-fold.png',
     'poke-cheek.png', 'rapid.png', 'drag.png', 'sleep.png', 'wake.png', 'drag-base.png')
 foreach ($spriteFile in $spriteFiles) {
     if (-not (Test-Path -LiteralPath (Join-Path $spriteDir $spriteFile))) {
         throw "Missing sprite: $spriteFile"
     }
 }
-
-$dist = Join-Path $projectRoot 'dist'
-foreach ($file in @('drag-base.png', 'drag-warp.json', 'drag-colors.json')) {
-    if (-not (Test-Path -LiteralPath (Join-Path $spriteDir $file))) { throw "Missing drag animation asset: $file" }
+$outfitSource = Join-Path $projectRoot 'assets\concepts\outfit-actions-2026-10-19'
+$outfitIds = @('lab-coat', 'maid', 'yukata', 'christmas-v2', 'red-dress-handfix',
+    'beachwear-v2', 'battle-suit')
+foreach ($outfitId in $outfitIds) {
+    $outfitDirectory = Join-Path $outfitSource $outfitId
+    foreach ($spriteFile in $spriteFiles) {
+        $outfitSprite = Join-Path $outfitDirectory $spriteFile
+        if (-not (Test-Path -LiteralPath $outfitSprite -PathType Leaf)) {
+            throw "Missing outfit sprite: $outfitId/$spriteFile"
+        }
+    }
 }
-$layerDir = Join-Path $projectRoot 'assets\layers\idle-v1'
-$layerFiles = @('layers.json', 'body.png', 'head-base.png', 'hair-back-left.png', 'hair-back-right.png', 'eyes-open.png', 'eyes-half.png', 'eyes-closed.png')
-foreach ($file in $layerFiles) {
-    if (-not (Test-Path -LiteralPath (Join-Path $layerDir $file))) { throw "Missing idle layer: $file" }
+$dist = Join-Path $projectRoot 'dist'
+foreach ($file in @('drag-warp.json', 'idle-motion.json')) {
+    if (-not (Test-Path -LiteralPath (Join-Path $spriteDir $file))) { throw "Missing motion asset: $file" }
 }
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 $sources = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src') -Filter '*.cs' | ForEach-Object FullName
@@ -56,17 +62,37 @@ New-Item -ItemType Directory -Force -Path $distSprites | Out-Null
 foreach ($spriteFile in $spriteFiles) {
     Copy-Item -LiteralPath (Join-Path $spriteDir $spriteFile) -Destination $distSprites -Force
 }
-foreach ($legacyFile in @('drag-sheet.png', 'drag-animation.json')) {
+$distOutfits = Join-Path $dist 'assets\outfits'
+foreach ($outfitId in $outfitIds) {
+    $source = Join-Path $outfitSource $outfitId
+    $destination = Join-Path $distOutfits $outfitId
+    New-Item -ItemType Directory -Force -Path $destination | Out-Null
+    foreach ($spriteFile in $spriteFiles) {
+        Copy-Item -LiteralPath (Join-Path $source $spriteFile) -Destination $destination -Force
+    }
+}
+$distWakeSequence = Join-Path $distSprites 'wake-sequence'
+if (Test-Path -LiteralPath $distWakeSequence) {
+    Get-ChildItem -LiteralPath $distWakeSequence -Filter 'frame-*.png' -File |
+        ForEach-Object { Remove-Item -LiteralPath $_.FullName }
+    if (-not (Get-ChildItem -LiteralPath $distWakeSequence -Force)) {
+        Remove-Item -LiteralPath $distWakeSequence
+    }
+}
+foreach ($legacyFile in @('drag-sheet.png', 'drag-animation.json', 'click-colors.json', 'drag-colors.json',
+    'wake-stir.png', 'wake-start.png', 'wake-raise.png', 'wake-fold.png')) {
     $legacyPath = Join-Path $distSprites $legacyFile
     if (Test-Path -LiteralPath $legacyPath) { Remove-Item -LiteralPath $legacyPath }
 }
-Copy-Item -LiteralPath (Join-Path $spriteDir 'click-colors.json') -Destination $distSprites -Force
-foreach ($file in @('drag-warp.json', 'drag-colors.json')) {
+foreach ($file in @('drag-warp.json', 'idle-motion.json')) {
     Copy-Item -LiteralPath (Join-Path $spriteDir $file) -Destination $distSprites -Force
 }
-$distLayers = Join-Path $dist 'assets\layers\idle-v1'
-New-Item -ItemType Directory -Force -Path $distLayers | Out-Null
-foreach ($file in $layerFiles) {
-    Copy-Item -LiteralPath (Join-Path $layerDir $file) -Destination $distLayers -Force
+$staleLayers = Join-Path $dist 'assets\layers\idle-v1'
+$resolvedDist = [IO.Path]::GetFullPath($dist).TrimEnd([IO.Path]::DirectorySeparatorChar)
+$resolvedStale = [IO.Path]::GetFullPath($staleLayers)
+if (-not $resolvedStale.StartsWith($resolvedDist + [IO.Path]::DirectorySeparatorChar,
+        [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Refusing to remove layers outside dist.'
 }
+if (Test-Path -LiteralPath $staleLayers) { Remove-Item -LiteralPath $staleLayers -Recurse -Force }
 Write-Host "Built: $output"

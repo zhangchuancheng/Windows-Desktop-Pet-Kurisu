@@ -16,7 +16,7 @@ namespace MakiseDesktopPet
         private bool sizeChanged;
 
         internal PetMenuPopup(Action<int> previewSize, Action saveSize, Action<bool> changeLayer,
-            Action<int> changeUiScale, Action changeDialogue, Action openChat,
+            Action<int> changeUiScale, Action changeDialogue, Action openOutfitPicker, Action openChat,
             Action openChatPreferences,
             Action hidePet, Action exitPet,
             Action closed)
@@ -52,6 +52,7 @@ namespace MakiseDesktopPet
             };
             canvas.HeightCommitted += CommitSize;
             canvas.PhraseSelected += delegate { CompleteAction(changeDialogue); };
+            canvas.OutfitSelected += delegate { CompleteAction(openOutfitPicker); };
             canvas.ChatSelected += delegate { CompleteAction(openChat); };
             canvas.ChatPreferencesSelected += delegate { CompleteAction(openChatPreferences); };
             canvas.HideSelected += delegate { CompleteAction(hidePet); };
@@ -77,12 +78,13 @@ namespace MakiseDesktopPet
 
         internal PetMenuCanvas Canvas { get { return canvas; } }
 
-        internal void ShowAt(Point pointer, int height, bool topmost, int uiScalePercent)
+        internal void ShowAt(Point pointer, int height, bool topmost, int uiScalePercent,
+            string outfitLabel)
         {
             previewTimer.Stop();
             appliedHeight = height;
             sizeChanged = false;
-            canvas.Reset(height, topmost, uiScalePercent);
+            canvas.Reset(height, topmost, uiScalePercent, outfitLabel);
             ResizeToCanvas();
             Rectangle work = Screen.FromPoint(pointer).WorkingArea;
             int x = pointer.X + 4;
@@ -144,10 +146,10 @@ namespace MakiseDesktopPet
     internal sealed class PetMenuCanvas : Control
     {
         private enum Target { None, Phrase, Slider, Top, Bottom, UiSmaller, UiLarger,
-            Chat, ChatPreferences, Hide, Exit }
+            Outfit, Chat, ChatPreferences, Hide, Exit }
 
         private const int BaseWidth = 264;
-        private const int BaseHeight = 418;
+        private const int BaseHeight = 454;
 
         private static readonly Color Cream = Color.FromArgb(252, 250, 246);
         private static readonly Color Ink = Color.FromArgb(63, 59, 58);
@@ -165,12 +167,14 @@ namespace MakiseDesktopPet
         private int selectedHeight = 220;
         private bool selectedTopMost = true;
         private int selectedUiScalePercent = PetSettings.DefaultUiScalePercent;
+        private string selectedOutfitLabel = "原版";
 
         internal event Action HeightChanged;
         internal event Action HeightCommitted;
         internal event Action<bool> LayerSelected;
         internal event Action<int> UiScaleSelected;
         internal event Action PhraseSelected;
+        internal event Action OutfitSelected;
         internal event Action ChatSelected;
         internal event Action ChatPreferencesSelected;
         internal event Action HideSelected;
@@ -189,11 +193,12 @@ namespace MakiseDesktopPet
         internal int SelectedUiScalePercent { get { return selectedUiScalePercent; } }
         internal float UiScale { get { return selectedUiScalePercent / 100f * 1.2f; } }
 
-        internal void Reset(int height, bool topmost, int uiScalePercent)
+        internal void Reset(int height, bool topmost, int uiScalePercent, string outfitLabel)
         {
             selectedHeight = Math.Max(PetSettings.MinimumHeight,
                 Math.Min(PetSettings.MaximumHeight, height));
             selectedTopMost = topmost;
+            selectedOutfitLabel = string.IsNullOrEmpty(outfitLabel) ? "原版" : outfitLabel;
             SetUiScale(uiScalePercent);
             sliding = false;
             pressed = Target.None;
@@ -258,10 +263,11 @@ namespace MakiseDesktopPet
                         ? Target.UiLarger : Target.None;
                 return Target.None;
             }
-            if (point.Y >= 264 && point.Y < 300) return Target.Chat;
-            if (point.Y >= 300 && point.Y < 336) return Target.ChatPreferences;
-            if (point.Y >= 336 && point.Y < 372) return Target.Hide;
-            if (point.Y >= 372 && point.Y < 408) return Target.Exit;
+            if (point.Y >= 264 && point.Y < 300) return Target.Outfit;
+            if (point.Y >= 300 && point.Y < 336) return Target.Chat;
+            if (point.Y >= 336 && point.Y < 372) return Target.ChatPreferences;
+            if (point.Y >= 372 && point.Y < 408) return Target.Hide;
+            if (point.Y >= 408 && point.Y < 444) return Target.Exit;
             return Target.None;
         }
 
@@ -308,6 +314,7 @@ namespace MakiseDesktopPet
             }
             if (activated == Target.None || activated != HitTest(LogicalPoint(e.Location))) return;
             if (activated == Target.Phrase && PhraseSelected != null) PhraseSelected();
+            else if (activated == Target.Outfit && OutfitSelected != null) OutfitSelected();
             else if (activated == Target.Chat && ChatSelected != null) ChatSelected();
             else if (activated == Target.ChatPreferences && ChatPreferencesSelected != null)
                 ChatPreferencesSelected();
@@ -370,14 +377,21 @@ namespace MakiseDesktopPet
             DrawRule(g, 216);
             DrawUiScale(g);
             DrawRule(g, 259);
-            DrawRow(g, Target.Chat, 264, "聊两句");
-            DrawSpeechIcon(g, 24, 275);
-            DrawRow(g, Target.ChatPreferences, 300, "聊天偏好");
-            DrawPreferencesIcon(g, 24, 311);
-            DrawRow(g, Target.Hide, 336, "隐藏到托盘");
-            DrawTrayIcon(g, 24, 347);
-            DrawRow(g, Target.Exit, 372, "退出桌宠");
-            DrawPowerIcon(g, 24, 384);
+            DrawRow(g, Target.Outfit, 264, "切换服装");
+            DrawOutfitIcon(g, 24, 275);
+            DrawText(g, selectedOutfitLabel, small, Muted,
+                new Rectangle(130, 270, 96, 24), TextFormatFlags.Right);
+            using (Pen arrow = new Pen(Muted, 1.4f))
+                g.DrawLines(arrow, new[] { new Point(234, 275), new Point(238, 279),
+                    new Point(234, 283) });
+            DrawRow(g, Target.Chat, 300, "聊两句");
+            DrawSpeechIcon(g, 24, 311);
+            DrawRow(g, Target.ChatPreferences, 336, "聊天偏好");
+            DrawPreferencesIcon(g, 24, 347);
+            DrawRow(g, Target.Hide, 372, "隐藏到托盘");
+            DrawTrayIcon(g, 24, 383);
+            DrawRow(g, Target.Exit, 408, "退出桌宠");
+            DrawPowerIcon(g, 24, 420);
         }
 
         private void DrawUiScale(Graphics g)
@@ -491,6 +505,20 @@ namespace MakiseDesktopPet
                 g.DrawLine(pen, x - 2, y + 2, x + 5, y + 2);
                 g.DrawLine(pen, x - 2, y + 5, x + 3, y + 5);
             }
+        }
+
+        private static void DrawOutfitIcon(Graphics g, int x, int y)
+        {
+            using (Pen pen = new Pen(Color.FromArgb(158, 119, 116), 1.3f))
+                g.DrawPolygon(pen, new[]
+                {
+                    new Point(x - 6, y - 5), new Point(x - 2, y - 5),
+                    new Point(x - 1, y - 3), new Point(x + 1, y - 3),
+                    new Point(x + 2, y - 5), new Point(x + 6, y - 5),
+                    new Point(x + 8, y - 2), new Point(x + 5, y + 1),
+                    new Point(x + 5, y + 8), new Point(x - 5, y + 8),
+                    new Point(x - 5, y + 1), new Point(x - 8, y - 2)
+                });
         }
 
         private static void DrawPreferencesIcon(Graphics g, int x, int y)

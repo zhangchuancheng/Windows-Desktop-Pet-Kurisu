@@ -45,6 +45,8 @@ namespace MakiseDesktopPet
         private long previousElapsed = -1;
         private float scaleX;
         private float scaleY;
+        private float motionScaleX;
+        private float motionScaleY;
         private float drawLeft;
         private float drawTop;
 
@@ -69,8 +71,6 @@ namespace MakiseDesktopPet
             if (source.Width != layout.canvas[0] || source.Height != layout.canvas[1] ||
                 source.Width < 32 || source.Height < 32)
                 throw new InvalidDataException("Drag image does not match its declared canvas.");
-            ClickColorCalibration colors = ClickColorCalibration.Load(directory, "drag-colors.json");
-            if (colors != null) colors.Apply(source, path);
             Resize(width, height);
         }
 
@@ -128,6 +128,11 @@ namespace MakiseDesktopPet
             int drawHeight = Math.Max(1, (int)Math.Round(height * layout.placement.heightRatio));
             scaleX = drawWidth / (float)source.Width;
             scaleY = drawHeight / (float)source.Height;
+            // Spring positions use the original logical 313x418 coordinate
+            // space. This keeps movement equally visible with a high-resolution
+            // replacement drawing and at every on-screen pet size.
+            motionScaleX = drawWidth / 313f;
+            motionScaleY = drawHeight / 418f;
             drawLeft = (width - drawWidth) / 2f + (float)(width * layout.placement.offsetXRatio);
             drawTop = (float)(height * layout.placement.topRatio);
             using (Graphics g = Graphics.FromImage(baseFrame))
@@ -152,12 +157,12 @@ namespace MakiseDesktopPet
                 {
                     double sx = (x - drawLeft) / scaleX / sxFactor;
                     int index = y * width + x;
-                    weights[0][index] = Influence(sx, sy, 149, 23, 262, 348, 418, 419);
-                    weights[1][index] = Influence(sx, sy, 194, 23, 262, 348, 418, 419);
-                    weights[2][index] = Influence(sx, sy, 135, 25, 207, 279, 306, 332);
-                    weights[3][index] = Influence(sx, sy, 203, 25, 207, 279, 306, 332);
-                    weights[4][index] = Influence(sx, sy, 69, 35, 152, 230, 280, 308);
-                    weights[5][index] = Influence(sx, sy, 255, 35, 152, 230, 280, 308);
+                    weights[0][index] = Influence(sx, sy, 138, 23, 265, 348, 418, 419);
+                    weights[1][index] = Influence(sx, sy, 205, 23, 265, 348, 418, 419);
+                    weights[2][index] = Influence(sx, sy, 132, 24, 195, 279, 307, 331);
+                    weights[3][index] = Influence(sx, sy, 196, 24, 195, 279, 307, 331);
+                    weights[4][index] = Influence(sx, sy, 75, 35, 152, 230, 280, 308);
+                    weights[5][index] = Influence(sx, sy, 245, 35, 152, 230, 280, 308);
                 }
             }
             ResetMotion(Point.Empty);
@@ -225,7 +230,7 @@ namespace MakiseDesktopPet
                         Buffer.BlockCopy(sourcePixels, target, pixels, target, 4);
                         continue;
                     }
-                    double sx = x - dx * scaleX, sy = y - dy * scaleY;
+                    double sx = x - dx * motionScaleX, sy = y - dy * motionScaleY;
                     int x0 = (int)Math.Floor(sx), y0 = (int)Math.Floor(sy);
                     int x1 = x0 + 1, y1 = y0 + 1;
                     double tx = sx - x0, ty = sy - y0;
@@ -252,8 +257,8 @@ namespace MakiseDesktopPet
             if (!changed) return output;
             double dt = previousElapsed < 0 ? 0 : Math.Max(0, (elapsed - previousElapsed) / 1000.0);
             double sampleTime = Math.Max(0.008, dt);
-            double vx = (latestPointer.X - sampledPointer.X) / sampleTime / scaleX;
-            double vy = (latestPointer.Y - sampledPointer.Y) / sampleTime / scaleY;
+            double vx = (latestPointer.X - sampledPointer.X) / sampleTime / motionScaleX;
+            double vy = (latestPointer.Y - sampledPointer.Y) / sampleTime / motionScaleY;
             double horizontal = Math.Tanh(vx / 220.0), vertical = Math.Tanh(vy / 150.0);
             double[] target = {
                 -15 * horizontal - 2.5 * vertical, -10 * horizontal + 2.5 * vertical,

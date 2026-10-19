@@ -1,0 +1,142 @@
+using System;
+using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Runtime.InteropServices;
+
+namespace MakiseDesktopPet
+{
+    internal static class IdleMotionSmoke
+    {
+        private static void Require(bool condition, string message) { if (!condition) throw new Exception(message); }
+        private static byte[] Bytes(Bitmap bitmap)
+        {
+            int stride = bitmap.Width * 4;
+            byte[] pixels = new byte[stride * bitmap.Height];
+            BitmapData data = bitmap.LockBits(new Rectangle(Point.Empty, bitmap.Size), ImageLockMode.ReadOnly, PixelFormat.Format32bppPArgb);
+            try { for (int y = 0; y < bitmap.Height; y++) Marshal.Copy(IntPtr.Add(data.Scan0, y * data.Stride), pixels, y * stride, stride); }
+            finally { bitmap.UnlockBits(data); }
+            return pixels;
+        }
+        private static bool Same(byte[] first, byte[] second)
+        {
+            if (first.Length != second.Length) return false;
+            for (int i = 0; i < first.Length; i++)
+                if (first[i] != second[i]) return false;
+            return true;
+        }
+        private static double DetailScore(Bitmap bitmap)
+        {
+            byte[] pixels = Bytes(bitmap);
+            int stride = bitmap.Width * 4;
+            double sum = 0;
+            int count = 0;
+            for (int y = 20; y < Math.Min(240, bitmap.Height); y++)
+                for (int x = 25; x < Math.Min(235, bitmap.Width); x++)
+                {
+                    int p = y * stride + x * 4;
+                    int left = p - 4, above = p - stride;
+                    double luma = pixels[p] * 0.0722 + pixels[p + 1] * 0.7152 +
+                        pixels[p + 2] * 0.2126 + (255 - pixels[p + 3]) * 0.93;
+                    double leftLuma = pixels[left] * 0.0722 + pixels[left + 1] * 0.7152 +
+                        pixels[left + 2] * 0.2126 + (255 - pixels[left + 3]) * 0.93;
+                    double aboveLuma = pixels[above] * 0.0722 + pixels[above + 1] * 0.7152 +
+                        pixels[above + 2] * 0.2126 + (255 - pixels[above + 3]) * 0.93;
+                    sum += Math.Abs(luma - leftLuma) + Math.Abs(luma - aboveLuma);
+                    count++;
+                }
+            return sum / count;
+        }
+        private static void Main(string[] args)
+        {
+            try
+            {
+                NativeMethods.SetProcessDpiAwarenessContext(new IntPtr(-4));
+                string directory = Path.Combine(args[0], "assets", "sprites");
+                using (IdleMotionAnimation animation = new IdleMotionAnimation(directory, 220))
+                {
+                    foreach (int height in new[] { 160, 220, 280, 340 })
+                    {
+                        animation.Resize(height);
+                        animation.Enter(0);
+                        bool changed;
+                        byte[] baseline = Bytes(animation.Render(0, 0, out changed));
+                        bool moved = false;
+                        for (int t = 0; t <= 12600; t += 210)
+                        {
+                            Bitmap frame = animation.Render(t, t / 210 % 3, out changed);
+                            byte[] pixels = Bytes(frame);
+                            int stride = frame.Width * 4;
+                            Require(frame.PixelFormat == PixelFormat.Format32bppPArgb, "Wrong format");
+                            for (int y = 0; y < height; y++)
+                                for (int x = 0; x < frame.Width; x++)
+                                {
+                                    int i = y * stride + x * 4;
+                                    if (y == 0 || y == height - 1 || x == 0 || x == frame.Width - 1)
+                                        Require(pixels[i + 3] == 0, "Clipped at canvas edge");
+                                    for (int c = 0; c < 4; c++)
+                                    {
+                                        Require(c == 3 || pixels[i+c] <= pixels[i+3], "Invalid premultiplied alpha");
+                                        if (y >= (int)(height * 0.88)) Require(pixels[i+c] == baseline[i+c], "Feet moved during idle animation");
+                                        else if (pixels[i+c] != baseline[i+c]) moved = true;
+                                    }
+                                }
+                        }
+                        Require(moved, "Idle animation remained static");
+                        Console.WriteLine("PASS: " + height + " px, 61 samples / three eye frames, stable feet, valid alpha, transparent canvas edges.");
+                    }
+                    animation.Resize(340);
+                    animation.Enter(0);
+                    using (Bitmap sheet = new Bitmap(animation.Width * 3, 370, PixelFormat.Format32bppArgb))
+                    using (Graphics g = Graphics.FromImage(sheet))
+                    {
+                        g.Clear(Color.FromArgb(238, 235, 228));
+                        for (int i=0;i<3;i++)
+                        {
+                            bool changed;
+                            g.DrawImageUnscaled(animation.Render(1800, i, out changed), i * animation.Width, 0);
+                        }
+                        sheet.Save(Path.Combine(args[0], "test-artifacts", "screenshots", "idle-2d-runtime.png"));
+                    }
+                    animation.Resize(355);
+                    animation.Enter(0);
+                    using (SpriteAssets direct = new SpriteAssets(directory, 355))
+                    using (Bitmap sheet = new Bitmap(animation.Width * 3, 375, PixelFormat.Format32bppArgb))
+                    using (Graphics g = Graphics.FromImage(sheet))
+                    {
+                        g.Clear(Color.FromArgb(238, 235, 228));
+                        g.DrawImageUnscaled(direct.Get(Pose.Idle), 0, 0);
+                        bool changed;
+                        g.DrawImageUnscaled(animation.Render(0, 0, out changed), animation.Width, 0);
+                        Bitmap active = animation.Render(1800, 0, out changed);
+                        g.DrawImageUnscaled(active, animation.Width * 2, 0);
+                        double detailRatio = DetailScore(active) / DetailScore(direct.Get(Pose.Idle));
+                        Require(detailRatio >= 0.87 && detailRatio <= 1.10,
+                            "Idle movement changes line detail too much: " + detailRatio.ToString("F3"));
+                        Console.WriteLine("355 px moving-idle detail retention: " + detailRatio.ToString("P1"));
+                        sheet.Save(Path.Combine(args[0], "test-artifacts", "screenshots", "idle-355-sharpness-baseline.png"));
+                    }
+                    foreach (int height in new[] { 355, 500 })
+                    {
+                        animation.Resize(height);
+                        animation.Enter(0);
+                        bool changed;
+                        Stopwatch watch = Stopwatch.StartNew();
+                        for (int i = 0; i < 120; i++) animation.Render(i * 16, 0, out changed);
+                        watch.Stop();
+                        Console.WriteLine(height + " px idle frame average: " +
+                            (watch.Elapsed.TotalMilliseconds / 120).ToString("F2") + " ms/frame");
+                    }
+                }
+                long start=1000, end=1240;
+                Require(IdleMotionAnimation.EyeForBlink(1000,start,end)==1, "Missing closing half frame");
+                Require(IdleMotionAnimation.EyeForBlink(1045,start,end)==2, "Missing closed frame");
+                Require(IdleMotionAnimation.EyeForBlink(1190,start,end)==1, "Missing opening half frame");
+                Require(IdleMotionAnimation.EyeForBlink(1240,start,end)==0, "Eyes did not reopen");
+                Console.WriteLine("PASS: half / closed / half / open blink sequence.");
+            }
+            catch(Exception error) { Console.WriteLine("FAIL: " + error); Environment.ExitCode=1; }
+        }
+    }
+}

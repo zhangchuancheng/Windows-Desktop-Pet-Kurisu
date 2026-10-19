@@ -1,0 +1,297 @@
+using System;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Web.Script.Serialization;
+
+namespace MakiseDesktopPet
+{
+    // A single complete drawing is deformed gently, so the new flat artwork
+    // cannot expose seams between separately cut head, hair, and body pieces.
+    internal sealed class IdleMotionAnimation : IDisposable
+    {
+        public sealed class GazeSpec
+        {
+            public float[][] eyeCenters { get; set; }
+            public float[][][][] eyeApertures { get; set; }
+            public float[] maxShift { get; set; }
+        }
+
+        public sealed class Manifest
+        {
+            public int[] canvas { get; set; }
+            public GazeSpec gaze { get; set; }
+        }
+
+        private readonly string directory;
+        private readonly bool enableGaze;
+        private readonly Manifest manifest;
+        private readonly Bitmap[] frames = new Bitmap[3];
+        private readonly EyeGazeLayer[] gazeFrames = new EyeGazeLayer[2];
+        private Bitmap output;
+        private byte[] sourcePixels, pixels;
+        private long activeSince, lastFrame = -1000;
+        private int lastEyes = -1;
+        private double lastEyeX = double.NaN, lastEyeY = double.NaN;
+        private double lastFaceX = double.NaN, lastFaceY = double.NaN;
+
+        internal int Width { get; private set; }
+        internal int Height { get; private set; }
+
+        internal IdleMotionAnimation(string directory, int height)
+            : this(directory, directory, height, true)
+        {
+        }
+
+        internal IdleMotionAnimation(string directory, string manifestDirectory,
+            int height, bool enableGaze)
+        {
+            this.directory = directory;
+            this.enableGaze = enableGaze;
+            manifest = new JavaScriptSerializer().Deserialize<Manifest>(File.ReadAllText(
+                Path.Combine(manifestDirectory, "idle-motion.json")));
+            if (manifest == null || manifest.canvas == null || manifest.canvas.Length != 2 ||
+                manifest.canvas[0] < 32 || manifest.canvas[1] < 32 || manifest.gaze == null ||
+                manifest.gaze.eyeCenters == null ||
+                manifest.gaze.eyeCenters.Length != 2 ||
+                manifest.gaze.eyeApertures == null || manifest.gaze.eyeApertures.Length != 2 ||
+                manifest.gaze.maxShift == null || manifest.gaze.maxShift.Length != 2)
+                throw new InvalidDataException("Invalid idle motion manifest.");
+            for (int i = 0; i < 2; i++)
+                if (manifest.gaze.eyeCenters[i] == null || manifest.gaze.eyeCenters[i].Length != 2 ||
+                    manifest.gaze.eyeApertures[i] == null ||
+                    manifest.gaze.eyeApertures[i].Length != 2 ||
+                    manifest.gaze.eyeApertures[i][0] == null ||
+                    manifest.gaze.eyeApertures[i][1] == null ||
+                    manifest.gaze.eyeApertures[i][0].Length < 2 ||
+                    manifest.gaze.eyeApertures[i][1].Length < 2)
+                    throw new InvalidDataException("Invalid idle eye region.");
+            for (int i = 0; i < 2; i++)
+                for (int contour = 0; contour < 2; contour++)
+                {
+                    float[][] points = manifest.gaze.eyeApertures[i][contour];
+                    for (int point = 0; point < points.Length; point++)
+                        if (points[point] == null || points[point].Length != 2 ||
+                            (point > 0 && points[point][0] <= points[point - 1][0]))
+                            throw new InvalidDataException("Invalid idle eye aperture.");
+                }
+            if (manifest.gaze.maxShift[0] <= 0 || manifest.gaze.maxShift[1] <= 0)
+                throw new InvalidDataException("Invalid idle gaze range.");
+            try { Resize(height); }
+            catch { Dispose(); throw; }
+        }
+
+        private Bitmap LoadScaled(string filename)
+        {
+            using (Bitmap original = new Bitmap(Path.Combine(directory, filename)))
+            {
+                if (original.Width != manifest.canvas[0] || original.Height != manifest.canvas[1])
+                    throw new InvalidDataException("Idle canvas mismatch: " + filename);
+                Bitmap scaled = new Bitmap(Width, Height, PixelFormat.Format32bppPArgb);
+                using (Graphics g = Graphics.FromImage(scaled))
+                {
+                    g.PageUnit = GraphicsUnit.Pixel;
+                    g.CompositingMode = CompositingMode.SourceCopy;
+                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                    g.DrawImage(original, new Rectangle(0, 0, Width, Height),
+                        0, 0, original.Width, original.Height, GraphicsUnit.Pixel);
+                }
+                return scaled;
+            }
+        }
+
+        internal void Resize(int height)
+        {
+            ReleaseFrames();
+            Height = height;
+            Width = Math.Max(1, (int)Math.Round(height * (double)manifest.canvas[0] / manifest.canvas[1]));
+            frames[0] = LoadScaled("idle.png");
+            frames[1] = LoadScaled("blink-half.png");
+            frames[2] = LoadScaled("blink.png");
+            Size canvas = new Size(manifest.canvas[0], manifest.canvas[1]);
+            Size size = new Size(Width, Height);
+            Rectangle full = new Rectangle(0, 0, Width, Height);
+            if (enableGaze)
+                for (int i = 0; i < gazeFrames.Length; i++)
+                    gazeFrames[i] = new EyeGazeLayer(frames[i], full, canvas, size,
+                        manifest.gaze.eyeCenters, manifest.gaze.eyeApertures,
+                        manifest.gaze.maxShift,
+                        i == 0 ? 1 : 0.5);
+            output = new Bitmap(Width, Height, PixelFormat.Format32bppPArgb);
+            sourcePixels = new byte[Width * Height * 4];
+            pixels = new byte[sourcePixels.Length];
+        }
+
+        internal void Enter(long now) { activeSince = now; lastEyes = -1; }
+
+        internal static int EyeForBlink(long now, long start, long end)
+        {
+            if (now < start || now >= end) return 0;
+            return now - start < 45 || end - now <= 50 ? 1 : 2;
+        }
+
+        private static double Smooth(double low, double high, double value)
+        {
+            double t = Math.Max(0, Math.Min(1, (value - low) / (high - low)));
+            return t * t * (3 - 2 * t);
+        }
+
+        private static byte ClampByte(double value)
+        {
+            return (byte)Math.Max(0, Math.Min(255, (int)Math.Round(value)));
+        }
+
+        private void ReadPixels(Bitmap image)
+        {
+            BitmapData data = image.LockBits(new Rectangle(Point.Empty, image.Size),
+                ImageLockMode.ReadOnly, PixelFormat.Format32bppPArgb);
+            try
+            {
+                int stride = Width * 4;
+                for (int y = 0; y < Height; y++)
+                    Marshal.Copy(IntPtr.Add(data.Scan0, y * data.Stride), sourcePixels,
+                        y * stride, stride);
+            }
+            finally { image.UnlockBits(data); }
+        }
+
+        private void WritePixels()
+        {
+            BitmapData data = output.LockBits(new Rectangle(Point.Empty, output.Size),
+                ImageLockMode.WriteOnly, PixelFormat.Format32bppPArgb);
+            try
+            {
+                int stride = Width * 4;
+                for (int y = 0; y < Height; y++)
+                    Marshal.Copy(pixels, y * stride, IntPtr.Add(data.Scan0, y * data.Stride), stride);
+            }
+            finally { output.UnlockBits(data); }
+        }
+
+        internal Bitmap Render(long now, int eyes, out bool changed)
+        {
+            return Render(now, eyes, 0, 0, 0, 0, out changed);
+        }
+
+        internal Bitmap Render(long now, int eyes, double eyeX, double eyeY,
+            double faceX, double faceY, out bool changed)
+        {
+            if (eyes < 0 || eyes > 2) throw new ArgumentOutOfRangeException("eyes");
+            changed = eyes != lastEyes || now - lastFrame >= 16 || now < lastFrame ||
+                eyeX != lastEyeX || eyeY != lastEyeY ||
+                faceX != lastFaceX || faceY != lastFaceY;
+            if (!changed) return output;
+            lastFrame = now; lastEyes = eyes;
+            lastEyeX = eyeX; lastEyeY = eyeY;
+            lastFaceX = faceX; lastFaceY = faceY;
+
+            Bitmap source = enableGaze && eyes < 2
+                ? gazeFrames[eyes].Render(eyeX, eyeY) : frames[eyes];
+            ReadPixels(source);
+            int stride = Width * 4, anchor = (int)Math.Floor(Height * 0.88);
+            double breath = PetMotion.Breath(now, Height);
+            double gain = Smooth(0, 240, now - activeSince);
+            double angle = Math.Sin(now * Math.PI * 2 / 6200.0) * 0.38 * Math.PI / 180.0 * gain;
+            double faceDx = faceX * Math.Min(2.8, Height / 120.0);
+            double faceDy = faceY * Math.Min(1.9, Height * 0.006);
+            double hairLag = Math.Sin((now - 260) * Math.PI * 2 / 6200.0) *
+                Math.Min(0.65, Height * 0.002) * gain;
+
+            for (int y = 0; y < Height; y++)
+            {
+                int row = y * stride;
+                if (y >= anchor)
+                {
+                    Buffer.BlockCopy(sourcePixels, row, pixels, row, stride);
+                    continue;
+                }
+                double yn = y / (double)Height;
+                double headWeight = 1 - Smooth(0.31, 0.58, yn);
+                double hairWeight = Smooth(0.25, 0.42, yn) * (1 - Smooth(0.66, 0.82, yn));
+                double dy = breath * (anchor - y) / anchor + faceDy * headWeight;
+                double sy = Math.Max(0, Math.Min(Height - 1.001, y - dy));
+                int y0 = (int)sy;
+                double ty = sy - y0, ty2 = ty * ty, ty3 = ty2 * ty;
+                double wy0 = -0.5 * ty + ty2 - 0.5 * ty3;
+                double wy1 = 1 - 2.5 * ty2 + 1.5 * ty3;
+                double wy2 = 0.5 * ty + 2 * ty2 - 1.5 * ty3;
+                double wy3 = -0.5 * ty2 + 0.5 * ty3;
+                int r0 = Math.Max(0, y0 - 1) * stride;
+                int r1 = y0 * stride;
+                int r2 = Math.Min(Height - 1, y0 + 1) * stride;
+                int r3 = Math.Min(Height - 1, y0 + 2) * stride;
+                for (int x = 0; x < Width; x++)
+                {
+                    double xn = x / (double)Width;
+                    double sides = Math.Max(0, 1 - Smooth(0.24, 0.42, xn)) +
+                        Smooth(0.58, 0.76, xn);
+                    double dx = (faceDx + angle * (Height * 0.45 - y)) * headWeight +
+                        hairLag * hairWeight * sides;
+                    double sx = Math.Max(0, Math.Min(Width - 1.001, x - dx));
+                    int x0 = (int)sx;
+                    double tx = sx - x0;
+                    int target = row + x * 4;
+                    if (tx < 0.000001 && ty < 0.000001)
+                    {
+                        Buffer.BlockCopy(sourcePixels, r1 + x0 * 4, pixels, target, 4);
+                        continue;
+                    }
+                    double tx2 = tx * tx, tx3 = tx2 * tx;
+                    double wx0 = -0.5 * tx + tx2 - 0.5 * tx3;
+                    double wx1 = 1 - 2.5 * tx2 + 1.5 * tx3;
+                    double wx2 = 0.5 * tx + 2 * tx2 - 1.5 * tx3;
+                    double wx3 = -0.5 * tx2 + 0.5 * tx3;
+                    int c0 = Math.Max(0, x0 - 1) * 4;
+                    int c1 = x0 * 4;
+                    int c2 = Math.Min(Width - 1, x0 + 1) * 4;
+                    int c3 = Math.Min(Width - 1, x0 + 2) * 4;
+                    for (int channel = 0; channel < 4; channel++)
+                    {
+                        double a = sourcePixels[r0 + c0 + channel] * wx0 +
+                            sourcePixels[r0 + c1 + channel] * wx1 +
+                            sourcePixels[r0 + c2 + channel] * wx2 +
+                            sourcePixels[r0 + c3 + channel] * wx3;
+                        double b = sourcePixels[r1 + c0 + channel] * wx0 +
+                            sourcePixels[r1 + c1 + channel] * wx1 +
+                            sourcePixels[r1 + c2 + channel] * wx2 +
+                            sourcePixels[r1 + c3 + channel] * wx3;
+                        double c = sourcePixels[r2 + c0 + channel] * wx0 +
+                            sourcePixels[r2 + c1 + channel] * wx1 +
+                            sourcePixels[r2 + c2 + channel] * wx2 +
+                            sourcePixels[r2 + c3 + channel] * wx3;
+                        double d = sourcePixels[r3 + c0 + channel] * wx0 +
+                            sourcePixels[r3 + c1 + channel] * wx1 +
+                            sourcePixels[r3 + c2 + channel] * wx2 +
+                            sourcePixels[r3 + c3 + channel] * wx3;
+                        pixels[target + channel] = ClampByte(a * wy0 + b * wy1 +
+                            c * wy2 + d * wy3);
+                    }
+                    // Catmull-Rom can overshoot at transparent boundaries. Keep
+                    // the premultiplied bitmap valid without changing the pose.
+                    byte alpha = pixels[target + 3];
+                    for (int channel = 0; channel < 3; channel++)
+                        if (pixels[target + channel] > alpha) pixels[target + channel] = alpha;
+                }
+            }
+            WritePixels();
+            return output;
+        }
+
+        private void ReleaseFrames()
+        {
+            for (int i = 0; i < gazeFrames.Length; i++)
+            { if (gazeFrames[i] != null) gazeFrames[i].Dispose(); gazeFrames[i] = null; }
+            for (int i = 0; i < frames.Length; i++)
+            { if (frames[i] != null) frames[i].Dispose(); frames[i] = null; }
+            if (output != null) output.Dispose();
+            output = null; sourcePixels = pixels = null;
+            lastFrame = -1000; lastEyes = -1;
+            lastEyeX = lastEyeY = lastFaceX = lastFaceY = double.NaN;
+        }
+
+        public void Dispose() { ReleaseFrames(); }
+    }
+}

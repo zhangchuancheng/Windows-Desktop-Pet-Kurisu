@@ -18,7 +18,6 @@ namespace MakiseDesktopPet
 
         internal SpriteAssets(string directory, int height)
         {
-            ClickColorCalibration calibration = ClickColorCalibration.Load(directory);
             foreach (Pose pose in Enum.GetValues(typeof(Pose)))
             {
                 string filename = Path.Combine(directory, SpriteFilename(pose));
@@ -28,7 +27,6 @@ namespace MakiseDesktopPet
                 {
                     Bitmap bitmap = image.Clone(
                         new Rectangle(0, 0, image.Width, image.Height), PixelFormat.Format32bppArgb);
-                    if (calibration != null) calibration.Apply(bitmap, filename);
                     originals.Add(pose, bitmap);
                 }
             }

@@ -40,6 +40,70 @@ namespace MakiseDesktopPet
                 }
         }
 
+        private static void SavePointerPreview(IdleMotionAnimation animation, string root)
+        {
+            animation.Resize(355);
+            animation.Enter(0);
+            Rectangle pet = new Rectangle(500, 500, animation.Width, animation.Height);
+            int faceX = (int)Math.Round(pet.Left + pet.Width * 0.51);
+            int faceY = (int)Math.Round(pet.Top + pet.Height * 0.33);
+            using (Bitmap sheet = new Bitmap(animation.Width * 3, animation.Height * 3,
+                PixelFormat.Format32bppArgb))
+            using (Graphics graphics = Graphics.FromImage(sheet))
+            {
+                graphics.Clear(Color.FromArgb(242, 238, 232));
+                for (int row = 0; row < 3; row++)
+                    for (int col = 0; col < 3; col++)
+                    {
+                        Point pointer = new Point(faceX + (col - 1) * 200,
+                            faceY + (row - 1) * 160);
+                        GazeMotion tracking = new GazeMotion();
+                        for (int time = 0; time <= 640; time += 16)
+                            tracking.Update(time, pointer, pet, true);
+                        bool changed;
+                        Bitmap frame = animation.Render(1800, 0, tracking.EyeX,
+                            tracking.EyeY, tracking.HeadX, tracking.HeadY, out changed);
+                        graphics.DrawImageUnscaled(frame,
+                            col * animation.Width, row * animation.Height);
+                    }
+                sheet.Save(Path.Combine(root, "test-artifacts", "screenshots",
+                    "gaze-pointer-preview-355.png"), ImageFormat.Png);
+            }
+
+            using (Bitmap halfBlink = new Bitmap(animation.Width * 3, animation.Height,
+                PixelFormat.Format32bppArgb))
+            using (Graphics graphics = Graphics.FromImage(halfBlink))
+            {
+                graphics.Clear(Color.FromArgb(242, 238, 232));
+                for (int col = 0; col < 3; col++)
+                {
+                    bool changed;
+                    Bitmap frame = animation.Render(1800, 1, col - 1, 0,
+                        0, 0, out changed);
+                    graphics.DrawImageUnscaled(frame, col * animation.Width, 0);
+                }
+                halfBlink.Save(Path.Combine(root, "test-artifacts", "screenshots",
+                    "gaze-half-blink-355.png"), ImageFormat.Png);
+            }
+
+            string frames = Path.Combine(root, "test-artifacts", "gaze-motion-frames");
+            Directory.CreateDirectory(frames);
+            GazeMotion moving = new GazeMotion();
+            for (int index = 0; index < 60; index++)
+            {
+                int time = index * 40;
+                double phase = time * Math.PI * 2 / 2400.0;
+                Point pointer = new Point(faceX + (int)Math.Round(200 * Math.Sin(phase)),
+                    faceY + (int)Math.Round(120 * Math.Sin(phase * 1.5)));
+                moving.Update(time, pointer, pet, true);
+                bool changed;
+                Bitmap frame = animation.Render(1800 + time, 0, moving.EyeX,
+                    moving.EyeY, moving.HeadX, moving.HeadY, out changed);
+                frame.Save(Path.Combine(frames, string.Format("frame-{0:D3}.png", index)),
+                    ImageFormat.Png);
+            }
+        }
+
         private static void Main(string[] args)
         {
             try
@@ -61,10 +125,21 @@ namespace MakiseDesktopPet
                 Require(Math.Abs(gaze.EyeX) < 0.001 && Math.Abs(gaze.HeadX) < 0.02,
                     "Gaze did not relax while inactive");
 
-                string directory = Path.Combine(args[0], "assets", "layers", "idle-v1");
-                using (LayeredIdleAnimation animation = new LayeredIdleAnimation(directory, 220))
+                GazeMotion nearby = new GazeMotion();
+                int faceX = (int)Math.Round(pet.Left + pet.Width * 0.51);
+                int faceY = (int)Math.Round(pet.Top + pet.Height * 0.33);
+                Point nearbyPointer = new Point(faceX + 200, faceY);
+                for (int t = 0; t <= 400; t += 16)
+                    nearby.Update(t, nearbyPointer, pet, true);
+                Require(nearby.EyeX > 0.6 && nearby.EyeX < 0.9,
+                    "A pointer 200 px from the face should produce a clear eye turn");
+                Require(nearby.HeadX > 0 && nearby.HeadX < nearby.EyeX,
+                    "Head should follow the nearby pointer more gently than the eyes");
+
+                string directory = Path.Combine(args[0], "assets", "sprites");
+                using (IdleMotionAnimation animation = new IdleMotionAnimation(directory, 220))
                 {
-                    foreach (int height in new[] { 160, 220, 280, 340 })
+                    foreach (int height in new[] { 100, 160, 220, 280, 340, 500 })
                     {
                         animation.Resize(height);
                         animation.Enter(0);
@@ -77,7 +152,7 @@ namespace MakiseDesktopPet
                         int stride = animation.Width * 4;
                         if (height == 340)
                             RequireUnchanged(neutral, eyesOnly, animation.Width,
-                                new Rectangle(185, 95, 10, 30), "Eye tracking warped the right side lock");
+                                new Rectangle(185, 105, 10, 30), "Eye tracking warped the right side lock");
                         int different = 0, eyeDifferent = 0;
                         for (int y = 0; y < height; y++)
                             for (int x = 0; x < animation.Width; x++)
@@ -113,11 +188,12 @@ namespace MakiseDesktopPet
                     animation.Enter(0);
                     bool sweepChanged;
                     byte[] sweepNeutral = Pixels(animation.Render(1800, 0, out sweepChanged));
+                    byte[] halfNeutral = Pixels(animation.Render(1800, 1, out sweepChanged));
                     Rectangle[] protectedArtwork = {
-                        new Rectangle(145, 87, 40, 12), // right eyebrow / upper lash
-                        new Rectangle(185, 95, 10, 30), // right side lock
-                        new Rectangle(78, 100, 45, 12), // left eyebrow
-                        new Rectangle(55, 112, 32, 35) // left side lock
+                        new Rectangle(140, 88, 35, 10), // right eyebrow
+                        new Rectangle(185, 105, 22, 30), // right side lock
+                        new Rectangle(84, 91, 29, 11), // left eyebrow
+                        new Rectangle(56, 110, 25, 30) // left side lock
                     };
                     using (Bitmap angles = new Bitmap(animation.Width * 3, animation.Height * 3, PixelFormat.Format32bppArgb))
                     using (Graphics grid = Graphics.FromImage(angles))
@@ -151,9 +227,15 @@ namespace MakiseDesktopPet
                         double angle = step * Math.PI / 8;
                         byte[] eyeFrame = Pixels(animation.Render(1800, 0,
                             Math.Cos(angle), Math.Sin(angle), 0, 0, out sweepChanged));
+                        byte[] halfFrame = Pixels(animation.Render(1800, 1,
+                            Math.Cos(angle), Math.Sin(angle), 0, 0, out sweepChanged));
                         foreach (Rectangle region in protectedArtwork)
+                        {
                             RequireUnchanged(sweepNeutral, eyeFrame, animation.Width, region,
                                 "Eye tracking warped protected artwork at direction " + step);
+                            RequireUnchanged(halfNeutral, halfFrame, animation.Width, region,
+                                "Half blink warped protected artwork at direction " + step);
+                        }
                     }
                     using (Bitmap sheet = new Bitmap(animation.Width * 3, 350, PixelFormat.Format32bppArgb))
                     using (Graphics g = Graphics.FromImage(sheet))
@@ -168,8 +250,9 @@ namespace MakiseDesktopPet
                         Directory.CreateDirectory(Path.Combine(args[0], "test-artifacts", "screenshots"));
                         sheet.Save(Path.Combine(args[0], "test-artifacts", "screenshots", "gaze-preview.png"));
                     }
+                    SavePointerPreview(animation, args[0]);
                 }
-                Console.WriteLine("PASS: smooth eye/head response, 8 extreme and 16 intermediate directions, protected brows/hair, inactive return to center.");
+                Console.WriteLine("PASS: visible nearby pointer response, smooth eye/head motion, 8 extreme and 16 intermediate directions, protected brows/hair, inactive return to center.");
             }
             catch (Exception error)
             {

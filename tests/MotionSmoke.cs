@@ -120,7 +120,7 @@ namespace MakiseDesktopPet
                         Stopwatch blinkWait = Stopwatch.StartNew();
                         while ((Pose)Read(pet, "pose") == Pose.Blink && blinkWait.ElapsedMilliseconds < 1000) Pump(5);
                         Require((Pose)Read(pet, "pose") == Pose.Idle, "Blink did not finish");
-                        Write(pet, "lastInteraction", -180001L);
+                        Write(pet, "lastInteraction", ((Stopwatch)Read(pet, "clock")).ElapsedMilliseconds - 180010L);
                         Call(pet, "OnTimerTick", null, EventArgs.Empty);
                         Require((Pose)Read(pet, "pose") == Pose.Sleep, "Sleep failed");
                         Call(pet, "OnMouseDown", new MouseEventArgs(MouseButtons.Left, 1, 0, 0, 0));

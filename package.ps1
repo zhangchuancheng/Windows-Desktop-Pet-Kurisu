@@ -26,24 +26,13 @@ Compress-Archive -Path $contents -DestinationPath $package -Force
 Write-Host "Packaged: $package"
 
 $sourcePackage = Join-Path $releaseDir 'MakiseDesktopPet-Source.zip'
-$sourceContents = @(
-    (Join-Path $PSScriptRoot 'src'),
-    (Join-Path $PSScriptRoot 'assets'),
-    (Join-Path $PSScriptRoot 'tests'),
-    (Join-Path $PSScriptRoot 'tools'),
-    (Join-Path $PSScriptRoot 'docs'),
-    (Join-Path $PSScriptRoot '.gitignore'),
-    (Join-Path $PSScriptRoot '.gitattributes'),
-    (Join-Path $PSScriptRoot 'build.ps1'),
-    (Join-Path $PSScriptRoot 'package.ps1'),
-    (Join-Path $PSScriptRoot 'App.config'),
-    (Join-Path $PSScriptRoot 'app.manifest'),
-    (Join-Path $PSScriptRoot 'dialogues.json'),
-    (Join-Path $PSScriptRoot 'chat-persona.json'),
-    (Join-Path $PSScriptRoot 'Install-Chat-Model.cmd'),
-    (Join-Path $PSScriptRoot 'setup-chat.ps1'),
-    (Join-Path $PSScriptRoot 'README.md'),
-    (Join-Path $PSScriptRoot 'CHANGELOG.md')
-)
-Compress-Archive -Path $sourceContents -DestinationPath $sourcePackage -Force
+& git -C $PSScriptRoot archive --format=zip "--output=$sourcePackage" HEAD
+if ($LASTEXITCODE -ne 0) { throw 'Failed to archive committed source files.' }
 Write-Host "Packaged: $sourcePackage"
+
+$checksums = Join-Path $releaseDir 'SHA256SUMS.txt'
+@($package, $sourcePackage) | ForEach-Object {
+    $hash = (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash.ToLowerInvariant()
+    "$hash  $(Split-Path -Leaf $_)"
+} | Set-Content -LiteralPath $checksums -Encoding Ascii
+Write-Host "Checksums: $checksums"

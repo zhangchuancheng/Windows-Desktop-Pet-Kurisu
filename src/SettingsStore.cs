@@ -21,12 +21,14 @@ namespace MakiseDesktopPet
         public bool HasPosition { get; set; }
         public int UiScalePercent { get; set; }
         public int UiScaleVersion { get; set; }
+        public string OutfitId { get; set; }
 
         internal static PetSettings Defaults()
         {
             return new PetSettings { Height = 220, TopMost = true, HasPosition = false,
                 UiScalePercent = DefaultUiScalePercent,
-                UiScaleVersion = CurrentUiScaleVersion };
+                UiScaleVersion = CurrentUiScaleVersion,
+                OutfitId = OutfitCatalog.OriginalId };
         }
     }
 
@@ -64,6 +66,7 @@ namespace MakiseDesktopPet
                     result.UiScalePercent = PetSettings.DefaultUiScalePercent;
                 result.UiScalePercent = Math.Max(PetSettings.MinimumUiScalePercent,
                     Math.Min(PetSettings.MaximumUiScalePercent, result.UiScalePercent));
+                result.OutfitId = OutfitCatalog.Normalize(result.OutfitId);
                 return result;
             }
             catch (Exception)

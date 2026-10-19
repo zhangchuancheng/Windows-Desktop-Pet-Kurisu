@@ -9,9 +9,8 @@ obj/
 *.exe
 *.pdb
 
-# Reproducible asset previews (keep runtime layers and editable sources)
-/assets/layers/idle-v1/preview-*.png
-/assets/layers/idle-v1/check-overlap-*.png
+# Local remnants of the retired layered art
+/assets/layers/
 
 # Editor and machine-local files
 .vs/

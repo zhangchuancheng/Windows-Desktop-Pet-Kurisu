@@ -31,8 +31,8 @@ namespace MakiseDesktopPet
             {
                 double faceX = petBounds.Left + petBounds.Width * 0.51;
                 double faceY = petBounds.Top + petBounds.Height * 0.33;
-                targetX = Target(cursor.X - faceX, 18, 390);
-                targetY = Target(cursor.Y - faceY, 18, 330);
+                targetX = Target(cursor.X - faceX, 9, 220);
+                targetY = Target(cursor.Y - faceY, 9, 200);
             }
 
             if (lastUpdate < 0 || now < lastUpdate)
@@ -42,8 +42,8 @@ namespace MakiseDesktopPet
             }
             double elapsed = Math.Min(80, now - lastUpdate);
             lastUpdate = now;
-            EyeX = Approach(EyeX, targetX, elapsed, 115);
-            EyeY = Approach(EyeY, targetY, elapsed, 145);
+            EyeX = Approach(EyeX, targetX, elapsed, 90);
+            EyeY = Approach(EyeY, targetY, elapsed, 110);
             HeadX = Approach(HeadX, targetX, elapsed, 340);
             HeadY = Approach(HeadY, targetY, elapsed, 390);
         }

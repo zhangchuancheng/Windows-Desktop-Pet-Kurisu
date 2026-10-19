@@ -5,6 +5,7 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace MakiseDesktopPet
@@ -105,6 +106,24 @@ namespace MakiseDesktopPet
                     Console.WriteLine("PASS: "+height+" px, two 5.6 s sleep cycles, stable feet, alpha, animated/fading Z symbols and cache.");
                 }
                 sheet.Save(Path.Combine(output,"four-sizes.png"));
+                foreach(int height in new[]{100,220,340,500})
+                {
+                    sprites.Resize(height);
+                    Bitmap image=sprites.Get(Pose.Wake);
+                    Require(image.Size==sprites.Get(Pose.Idle).Size,
+                        "Wake pose size differs from idle at "+height+" px");
+                    byte[] pixels=Pixels(image);
+                    int stride=image.Width*4;
+                    for(int x=0;x<image.Width;x++)
+                        Require(pixels[x*4+3]<=1 &&
+                            pixels[(image.Height-1)*stride+x*4+3]<=1,
+                            "Wake pose clipped vertically");
+                    for(int y=0;y<image.Height;y++)
+                        Require(pixels[y*stride+3]<=1 &&
+                            pixels[y*stride+(image.Width-1)*4+3]<=1,
+                            "Wake pose clipped horizontally");
+                    Console.WriteLine("PASS: "+height+" px, single wake pose with matching canvas and transparent edges.");
+                }
             }
             // Exercise the production state/render paths without showing windows or capturing input.
             using(PetForm pet=new PetForm(root))
@@ -114,7 +133,11 @@ namespace MakiseDesktopPet
                 Write(store,"PathOnDisk",Path.Combine(output,"isolated-settings.json"));
                 try
                 {
-                    Write(pet,"lastInteraction",-180001L);
+                    long now = ((Stopwatch)Read(pet,"clock")).ElapsedMilliseconds;
+                    Write(pet,"lastInteraction",now-179900L);
+                    Call(pet,"OnTimerTick",null,EventArgs.Empty);
+                    Require(!(bool)Read(pet,"sleeping"),"Sleep timer entered before three minutes");
+                    Write(pet,"lastInteraction",now-180010L);
                     Call(pet,"OnTimerTick",null,EventArgs.Empty);
                     Require((bool)Read(pet,"sleeping")&&(Pose)Read(pet,"pose")==Pose.Sleep,"Sleep timer did not enter sleeping pose");
                     long start=(long)Read(pet,"sleepStarted");
@@ -130,13 +153,43 @@ namespace MakiseDesktopPet
                         Call(pet,"RenderMotion",start+2800,true);
                         Require(pet.Height==size&&(Pose)Read(pet,"pose")==Pose.Sleep,"Resizing lost sleep state");
                     }
-                    Write(pet,"sleeping",false);
-                    Call(pet,"SetPose",Pose.Wake);
-                    SpriteAssets assets=(SpriteAssets)Read(pet,"sprites");
-                    Require(Same(Frame(pet),Pixels(assets.Get(Pose.Wake))),"Sleep frame/ZZZ remained on wake");
-                    Write(pet,"poseUntil",((Stopwatch)Read(pet,"clock")).ElapsedMilliseconds-1);
+                    byte[] sleepWithZ=Frame(pet);
+                    long beforeWake=((Stopwatch)Read(pet,"clock")).ElapsedMilliseconds;
+                    Call(pet,"InteractWithChat");
+                    SpriteAssets petSprites=(SpriteAssets)Read(pet,"sprites");
+                    Require(Same(Frame(pet),Pixels(petSprites.Get(Pose.Wake))) &&
+                        !Same(Frame(pet),sleepWithZ),
+                        "Wake did not replace sleep and Z with the single wake sprite");
+                    long wakeUntil=(long)Read(pet,"poseUntil");
+                    Require(wakeUntil-beforeWake>=850 && wakeUntil-beforeWake<900,
+                        "Single wake sprite was not scheduled for 850 ms");
                     Call(pet,"OnTimerTick",null,EventArgs.Empty);
-                    Require((Pose)Read(pet,"pose")==Pose.Idle||(Pose)Read(pet,"pose")==Pose.Blink,"Wake did not restore idle");
+                    Require((Pose)Read(pet,"pose")==Pose.Wake &&
+                        Same(Frame(pet),Pixels(petSprites.Get(Pose.Wake))),
+                        "Wake sprite changed before its 850 ms hold elapsed");
+                    Thread.Sleep(860);
+                    Call(pet,"OnTimerTick",null,EventArgs.Empty);
+                    Require((Pose)Read(pet,"pose")==Pose.Idle||(Pose)Read(pet,"pose")==Pose.Blink,
+                        "Wake did not restore idle after 850 ms");
+                    Call(pet,"EnterSleep");
+                    Call(pet,"InteractWithChat");
+                    Write(pet,"pressed",true);
+                    long heldNow=((Stopwatch)Read(pet,"clock")).ElapsedMilliseconds;
+                    Write(pet,"poseUntil",heldNow-1);
+                    Call(pet,"OnTimerTick",null,EventArgs.Empty);
+                    Require((Pose)Read(pet,"pose")==Pose.Wake &&
+                        Same(Frame(pet),Pixels(petSprites.Get(Pose.Wake))),
+                        "Held wake did not remain on its single sprite");
+                    int clickIndex=(int)Read(pet,"nextClickPose");
+                    Call(pet,"OnMouseUp",new MouseEventArgs(MouseButtons.Left,1,0,0,0));
+                    System.Collections.Generic.Dictionary<string,string[]> groups=
+                        (System.Collections.Generic.Dictionary<string,string[]>)Read(Read(pet,"dialogues"),"groups");
+                    Require(Array.IndexOf(groups["wake"],(string)Read(pet,"bubbleText"))>=0 &&
+                        (int)Read(pet,"nextClickPose")==clickIndex,
+                        "Releasing a completed held wake did not use wake dialogue");
+                    Call(pet,"OnTimerTick",null,EventArgs.Empty);
+                    Require((Pose)Read(pet,"pose")==Pose.Idle||(Pose)Read(pet,"pose")==Pose.Blink,
+                        "Releasing a completed held wake did not restore idle");
                     for(int i=0;i<6;i++)
                     {
                         ((System.Collections.Generic.Queue<long>)Read(pet,"recentClicks")).Clear();
@@ -144,11 +197,12 @@ namespace MakiseDesktopPet
                         Call(pet,"OnMouseUp",new MouseEventArgs(MouseButtons.Left,1,0,0,0));
                         Require((Pose)Read(pet,"pose")==new[]{Pose.PokeBlock,Pose.PokeFold,Pose.PokeCheek}[i%3],"Click cycle regressed");
                     }
+                    Call(pet,"SetPose",Pose.Wake);
                     Call(pet,"SetPose",Pose.Drag);
                     bool dragChanged;
                     Require(Same(Frame(pet),Pixels(((DragWarpAnimation)Read(pet,"dragAnimation")).Render(0,out dragChanged))),"Sleep frame remained on drag");
                     Require(!pet.Visible&&!((BubbleForm)Read(pet,"bubble")).Visible,"Background test showed a window");
-                    Console.WriteLine("PASS: sleep entry/render loop, four sleep sizes, wake/idle/click/drag transitions; no shown windows.");
+                    Console.WriteLine("PASS: three-minute sleep entry, four sleep sizes, single 850 ms wake, idle/click/drag transitions; no shown windows.");
                 }
                 finally { Call(pet,"OnFormClosed",new FormClosedEventArgs(CloseReason.ApplicationExitCall)); }
             }

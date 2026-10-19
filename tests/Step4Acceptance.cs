@@ -201,7 +201,7 @@ namespace MakiseDesktopPet
             Check((Pose)Read(pet,"pose")==Pose.Wake && (int)Read(pet,"nextClickPose")==clickIndex,"wake release uses wake response, does not advance clicks");
             Pump(5700,50);
             Check((long)Read(pet,"bubbleUntil")==0,"bubble expires after five seconds");
-            Check((Pose)Read(pet,"pose")==Pose.Idle || (Pose)Read(pet,"pose")==Pose.Blink,"wake returns to layered idle");
+            Check((Pose)Read(pet,"pose")==Pose.Idle || (Pose)Read(pet,"pose")==Pose.Blink,"wake returns to 2D idle");
             long previousCooldown=(long)Read(pet,"rapidCooldownUntil");
             for(int i=0;i<4;i++) { Click(); Pump(80,0); }
             long cooldown=(long)Read(pet,"rapidCooldownUntil");

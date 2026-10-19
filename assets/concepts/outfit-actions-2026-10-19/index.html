@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>红莉栖桌宠 · 换装动作对照</title>
+  <style>
+    :root { color-scheme: dark; font-family: "Microsoft YaHei", system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #eee9e7; background: #171317; }
+    header { position: sticky; top: 0; z-index: 2; padding: 18px clamp(18px, 4vw, 44px); background: #211a20ee; border-bottom: 1px solid #4a3743; backdrop-filter: blur(10px); }
+    h1 { font-size: 22px; margin: 0 0 6px; }
+    p { margin: 0; color: #c9bac3; font-size: 13px; line-height: 1.6; }
+    nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    button { padding: 9px 14px; border: 1px solid #745567; border-radius: 7px; background: #342730; color: #f8edf2; cursor: pointer; }
+    button[aria-pressed="true"] { border-color: #e483a8; background: #743b55; }
+    main { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; padding: 24px clamp(18px, 4vw, 44px) 44px; max-width: 1800px; margin: auto; }
+    article { border: 1px solid #5c4755; border-radius: 10px; background: #241d24; overflow: hidden; }
+    h2 { font-size: 16px; margin: 0; padding: 13px 16px; border-bottom: 1px solid #4d3c47; }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; }
+    figure { margin: 0; min-width: 0; }
+    figure + figure { border-left: 1px solid #4d3c47; }
+    figcaption { padding: 8px; color: #d2c7cd; font-size: 12px; text-align: center; }
+    .stage { aspect-ratio: 1024 / 1402; display: flex; align-items: center; justify-content: center; background-color: #332b33; background-image: linear-gradient(45deg,#3b323c 25%,transparent 25%), linear-gradient(-45deg,#3b323c 25%,transparent 25%), linear-gradient(45deg,transparent 75%,#3b323c 75%), linear-gradient(-45deg,transparent 75%,#3b323c 75%); background-size: 24px 24px; background-position: 0 0,0 12px,12px -12px,-12px 0; }
+    img { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
+    .missing { padding: 18px; color: #e6afbe; text-align: center; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>换装动作对照</h1>
+    <p>对照现行原版的 10 种画面。红礼服已修订胳膊和手部；运动泳装采用短袖、大腿中段泳裤和小幅露腰设计。眨眼、追视和拖拽参数仍需在正式接入前校准。</p>
+    <nav id="outfits" aria-label="选择装扮"></nav>
+  </header>
+  <main id="gallery"></main>
+  <script>
+    const outfits = [
+      ['lab-coat', '实验服'], ['maid', '女仆装'], ['yukata', '浴衣'],
+      ['christmas-v2', '圣诞装'], ['red-dress-handfix', '红礼服（手部修订）'],
+      ['beachwear-v2', '运动泳装'],
+      ['battle-suit', '战斗装']
+    ];
+    const poses = [
+      ['idle', '待机'], ['blink-half', '半眨眼'], ['blink', '闭眼'],
+      ['poke-block', '点击：挡手'], ['poke-fold', '点击：抱臂鼓脸'],
+      ['poke-cheek', '点击：托腮'], ['rapid', '连点：叉手'],
+      ['sleep', '打盹'], ['wake', '唤醒'], ['drag-base', '拖拽底稿']
+    ];
+    const nav = document.querySelector('#outfits');
+    const gallery = document.querySelector('#gallery');
+    let selected = 'red-dress-handfix';
+    for (const [key, label] of outfits) {
+      const button = document.createElement('button');
+      button.textContent = label;
+      button.dataset.key = key;
+      button.onclick = () => { selected = key; render(); };
+      nav.append(button);
+    }
+    function sprite(src, label) {
+      const figure = document.createElement('figure');
+      const stage = document.createElement('div');
+      stage.className = 'stage';
+      const img = document.createElement('img');
+      img.src = src;
+      img.alt = label;
+      img.onerror = () => { stage.textContent = '这一动作尚未完成'; stage.classList.add('missing'); };
+      stage.append(img);
+      const caption = document.createElement('figcaption');
+      caption.textContent = label;
+      figure.append(stage, caption);
+      return figure;
+    }
+    function render() {
+      for (const button of nav.children) button.setAttribute('aria-pressed', button.dataset.key === selected);
+      gallery.replaceChildren();
+      for (const [key, label] of poses) {
+        const card = document.createElement('article');
+        const heading = document.createElement('h2');
+        heading.textContent = label;
+        const pair = document.createElement('div');
+        pair.className = 'pair';
+        pair.append(sprite(`../../sprites/${key}.png`, '当前原版'), sprite(`${selected}/${key}.png`, '换装模板'));
+        card.append(heading, pair);
+        gallery.append(card);
+      }
+    }
+    render();
+  </script>
+</body>
+</html>
