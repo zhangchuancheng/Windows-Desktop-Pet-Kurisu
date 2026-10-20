@@ -34,6 +34,11 @@ namespace MakiseDesktopPet
         private readonly Bitmap[] frames = new Bitmap[3];
         private readonly Bitmap[] localBlinkOriginals = new Bitmap[2];
         private readonly EyeGazeLayer[] gazeFrames = new EyeGazeLayer[2];
+        private readonly Bitmap[] gazeOriginals = new Bitmap[2];
+        private readonly Bitmap[] gazeScaled = new Bitmap[2];
+        private readonly Rectangle[] gazeCrops = new Rectangle[2];
+        private readonly double[] scaledEyeX = { double.NaN, double.NaN };
+        private readonly double[] scaledEyeY = { double.NaN, double.NaN };
         private Bitmap output;
         private byte[] sourcePixels, pixels;
         private long activeSince, lastFrame = -1000;
@@ -84,7 +89,8 @@ namespace MakiseDesktopPet
                 }
             if (manifest.gaze.maxShift[0] <= 0 || manifest.gaze.maxShift[1] <= 0)
                 throw new InvalidDataException("Invalid idle gaze range.");
-            if (enableGaze && this.useLocalBlink)
+            if (enableGaze && (this.useLocalBlink ||
+                manifest.gaze.halfEyeCenters != null || manifest.gaze.halfEyeApertures != null))
             {
                 if (manifest.gaze.halfEyeCenters == null || manifest.gaze.halfEyeCenters.Length != 2 ||
                     manifest.gaze.halfEyeApertures == null || manifest.gaze.halfEyeApertures.Length != 2)
@@ -132,6 +138,57 @@ namespace MakiseDesktopPet
             return scaled;
         }
 
+        private static Bitmap CopyNative(Bitmap original, Rectangle crop)
+        {
+            Bitmap copy = new Bitmap(crop.Width, crop.Height, PixelFormat.Format32bppPArgb);
+            using (Graphics g = Graphics.FromImage(copy))
+            {
+                g.CompositingMode = CompositingMode.SourceCopy;
+                g.DrawImageUnscaled(original, -crop.Left, -crop.Top);
+            }
+            return copy;
+        }
+
+        private Rectangle GazeCrop(float[][][][] apertures)
+        {
+            float left=manifest.canvas[0], top=manifest.canvas[1], right=0, bottom=0;
+            foreach (float[][][] aperture in apertures)
+                foreach (float[][] contour in aperture)
+                    foreach (float[] point in contour)
+                    {
+                        left=Math.Min(left,point[0]); top=Math.Min(top,point[1]);
+                        right=Math.Max(right,point[0]); bottom=Math.Max(bottom,point[1]);
+                    }
+            int margin=(int)Math.Ceiling(manifest.canvas[0]*0.05);
+            return Rectangle.Intersect(new Rectangle(0,0,manifest.canvas[0],manifest.canvas[1]),
+                Rectangle.FromLTRB((int)Math.Floor(left)-margin,(int)Math.Floor(top)-margin,
+                    (int)Math.Ceiling(right)+margin,(int)Math.Ceiling(bottom)+margin));
+        }
+
+        private Bitmap RenderGaze(int eyes, double x, double y)
+        {
+            if (x == scaledEyeX[eyes] && y == scaledEyeY[eyes]) return gazeScaled[eyes];
+            Bitmap native = gazeFrames[eyes].Render(x, y);
+            using (Graphics g = Graphics.FromImage(gazeScaled[eyes]))
+            {
+                g.CompositingMode = CompositingMode.SourceCopy;
+                g.DrawImageUnscaled(frames[eyes],0,0);
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                Rectangle crop=gazeCrops[eyes];
+                float sx=Width/(float)manifest.canvas[0], sy=Height/(float)manifest.canvas[1];
+                // Discard crop-border filter pixels. The extra source padding
+                // keeps the eye resampling aligned with the complete drawing.
+                g.SetClip(new RectangleF((crop.Left+8)*sx,(crop.Top+8)*sy,
+                    (crop.Width-16)*sx,(crop.Height-16)*sy));
+                g.DrawImage(native, new RectangleF(crop.Left*sx,crop.Top*sy,crop.Width*sx,crop.Height*sy),
+                    new RectangleF(0,0,native.Width,native.Height), GraphicsUnit.Pixel);
+            }
+            scaledEyeX[eyes] = x;
+            scaledEyeY[eyes] = y;
+            return gazeScaled[eyes];
+        }
+
         private Bitmap LoadLocalBlink(double opening, int index)
         {
             if (localBlinkOriginals[index] != null) return Scale(localBlinkOriginals[index]);
@@ -169,15 +226,24 @@ namespace MakiseDesktopPet
             frames[1] = useLocalBlink ? LoadLocalBlink(0.48, 0) : LoadScaled("blink-half.png");
             frames[2] = useLocalBlink ? LoadLocalBlink(0.08, 1) : LoadScaled("blink.png");
             Size canvas = new Size(manifest.canvas[0], manifest.canvas[1]);
-            Size size = new Size(Width, Height);
-            Rectangle full = new Rectangle(0, 0, Width, Height);
             if (enableGaze)
                 for (int i = 0; i < gazeFrames.Length; i++)
-                    gazeFrames[i] = new EyeGazeLayer(frames[i], full, canvas, size,
-                        i == 1 && useLocalBlink ? manifest.gaze.halfEyeCenters : manifest.gaze.eyeCenters,
-                        i == 1 && useLocalBlink ? manifest.gaze.halfEyeApertures : manifest.gaze.eyeApertures,
-                        manifest.gaze.maxShift,
-                        i == 0 ? 1 : 0.5);
+                {
+                    float[][] centers=i == 1 && manifest.gaze.halfEyeCenters != null
+                        ? manifest.gaze.halfEyeCenters : manifest.gaze.eyeCenters;
+                    float[][][][] apertures=i == 1 && manifest.gaze.halfEyeApertures != null
+                        ? manifest.gaze.halfEyeApertures : manifest.gaze.eyeApertures;
+                    gazeCrops[i]=GazeCrop(apertures);
+                    if (i == 1 && useLocalBlink)
+                        gazeOriginals[i] = CopyNative(localBlinkOriginals[0],gazeCrops[i]);
+                    else
+                        using (Bitmap native = new Bitmap(Path.Combine(directory,
+                            i == 0 ? "idle.png" : "blink-half.png")))
+                            gazeOriginals[i] = CopyNative(native,gazeCrops[i]);
+                    gazeScaled[i] = new Bitmap(Width, Height, PixelFormat.Format32bppPArgb);
+                    gazeFrames[i] = new EyeGazeLayer(gazeOriginals[i], gazeCrops[i], canvas, canvas,
+                        centers, apertures, manifest.gaze.maxShift, i == 0 ? 1 : 0.5);
+                }
             output = new Bitmap(Width, Height, PixelFormat.Format32bppPArgb);
             sourcePixels = new byte[Width * Height * 4];
             pixels = new byte[sourcePixels.Length];
@@ -247,7 +313,7 @@ namespace MakiseDesktopPet
             lastFaceX = faceX; lastFaceY = faceY;
 
             Bitmap source = enableGaze && eyes < 2
-                ? gazeFrames[eyes].Render(eyeX, eyeY) : frames[eyes];
+                ? RenderGaze(eyes, eyeX, eyeY) : frames[eyes];
             ReadPixels(source);
             int stride = Width * 4, anchor = (int)Math.Floor(Height * 0.88);
             double breath = PetMotion.Breath(now, Height);
@@ -341,7 +407,12 @@ namespace MakiseDesktopPet
         private void ReleaseFrames()
         {
             for (int i = 0; i < gazeFrames.Length; i++)
-            { if (gazeFrames[i] != null) gazeFrames[i].Dispose(); gazeFrames[i] = null; }
+            {
+                if (gazeFrames[i] != null) gazeFrames[i].Dispose(); gazeFrames[i] = null;
+                if (gazeOriginals[i] != null) gazeOriginals[i].Dispose(); gazeOriginals[i] = null;
+                if (gazeScaled[i] != null) gazeScaled[i].Dispose(); gazeScaled[i] = null;
+                scaledEyeX[i] = scaledEyeY[i] = double.NaN;
+            }
             for (int i = 0; i < frames.Length; i++)
             { if (frames[i] != null) frames[i].Dispose(); frames[i] = null; }
             if (output != null) output.Dispose();

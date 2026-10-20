@@ -14,7 +14,7 @@ powershell -ExecutionPolicy Bypass -File .\tests\run-step4.ps1
 | SizeSliderSmoke.cs | 后台检查菜单绘制、“切换服装”和“聊天偏好”入口、角色大小滑条、界面 80%/150% 缩放、旧版 120% 设置迁移、设置保存与焦点；可选 `--visible` 检查弹出位置、实际画面与缩放后的点击区域 |
 | OutfitSwitchSmoke.cs | 使用 `build.ps1` 生成的 `dist/assets/outfits/` 后台切换七套服装，逐张核对运行素材、检查设置持久化、未知 ID 回退原版，以及缺少服装包时保留原有服装；测试设置写入独立的 `test-artifacts/outfit-settings.json` |
 | IdleMotionSmoke.cs | 四尺寸新 2D 待机图、固定脚部、alpha、三档眨眼；355 像素静止与运动帧的清晰度对照及 355/500 像素短时耗时检查 |
-| GazeSmoke.cs | 100/160/220/280/340/500 像素追视、透明边缘、固定脚部、恢复原色及近距离指针响应；验证八个极端方向、十六个中间方向及半闭眼不拉动眉毛或侧发，生成 `test-artifacts/screenshots/gaze-preview.png`、`gaze-angle-grid.png`、`gaze-pointer-preview-355.png`、`gaze-half-blink-355.png` 和 60 张连续渲染帧 |
+| GazeSmoke.cs | 100/160/220/280/340/500 像素追视、透明边缘、固定脚部、恢复居中帧及近距离指针响应；验证八个极端方向、十六个中间方向及半闭眼不拉动眉毛或侧发，生成 `test-artifacts/screenshots/gaze-preview.png`、`gaze-angle-grid.png`、`gaze-pointer-preview-355.png`、`gaze-half-blink-355.png` 和 60 张连续渲染帧 |
 | ClickArtSmoke.cs | 新 2D 点击及叉手姿态在 100/220/340/500 像素下的透明边缘、原图颜色、点击图与待机图的轮廓及鞋底对齐，以及仅眼部变化的眨眼检查 |
 | SleepMotionSmoke.cs | 四尺寸睡眠呼吸、独立 ZZZ 出现与淡出、透明边缘、固定脚部和循环衔接；检查单张唤醒图、返回待机及点击/拖动衔接；后台执行 |
 | DialogueSmoke.cs | 60 条台词、分组轮换、表情匹配、连点冷却、气泡尺寸和隐藏窗口状态检查 |
@@ -24,7 +24,9 @@ powershell -ExecutionPolicy Bypass -File .\tests\run-step4.ps1
 | DragAnimationSmoke.cs | 七种角色尺寸（100–500 像素，含 355 像素）下单图拖拽形变的静止一致性、与待机及三张点击图的可见轮廓对齐、双向响应、停止回正、透明边缘和隐藏窗口状态检查；同时输出 80 张模拟鼠标轨迹的实际渲染帧到 `test-artifacts/drag-2d-preview-frames/` |
 | OutfitDragSmoke.cs | 七套服饰在 100/355/500 像素下检查泪滴、半闭眼、闭眼、睁眼后精确还原、身体静止和缩放；对照图输出到 `test-artifacts/outfit-drag/` |
 | OutfitIdleSmoke.cs | 统计七套旧眨眼图的身体差异；在 100/355/500 像素、四个呼吸时刻检查新局部眨眼的眼区外像素不变及睁眼精确还原；对照图在 `test-artifacts/outfit-idle/` |
-| OutfitGazeSmoke.cs | 七套服饰在 100/355/500 像素下检查九个追视方向、睁眼/半闭眼/闭眼、轮廓透明度不变、眼区外像素不变及精确回正；对照图在 `test-artifacts/outfit-gaze/` |
+| OutfitGazeSmoke.cs | 七套服饰在 100/220/355/500 像素下检查九个追视方向、睁眼/半闭眼/闭眼、轮廓透明度不变、眼区外像素不变及精确回正；对照图在 `test-artifacts/outfit-gaze/` |
+| GazeEdgeSmoke.cs | 用黑色固定眼缘、白色眼白和蓝色虹膜检查 32 个方向的眼角拉丝、反复转向残影、眼缘固定及精确回正；另外逐像素检查八方向平移后的虹膜轮廓、瞳孔和高光，防止边缘凹陷；另用八套真实原图验证虹膜细节刚性平移，以及旧虹膜边缘移开后露出眼白。输出原版及七套服饰在 500 像素下九方向睁眼/半闭眼的放大图到 `test-artifacts/gaze-edges/`，供目视复核 |
+| GazeVisualReview.cs | 可选视觉导出：八套服装的五方向睁眼/半闭眼对照、64 帧连续转向及眨眼，输出到 `test-artifacts/gaze-rework/`；使用正式渲染路径并记录实际移动追视耗时。默认 355 像素，500 像素可执行 `test-artifacts/GazeVisualReview.exe <项目根目录> 500`。不操作桌面鼠标 |
 | OutfitMenuInputSmoke.cs | 可选前台交互测试：另一个进程保持前台起点，使用系统鼠标输入从桌宠右键设置切换全部八种造型，覆盖置顶/置底共 16 次选择及 Esc、点击外部关闭；设置独立保存。运行期间会移动鼠标和切换前台窗口，未加入默认后台测试集。命令：`.\tests\run-step4.ps1 OutfitMenuInputSmoke` |
 | run-step4.ps1 | 默认入口，运行菜单、七套换装及其拖拽表情、待机、追视、点击素材、台词、连续点击、拖拽动画、睡眠呼吸和第 4 步后台检查；可指定单个测试名称运行 |
 | ChatSmoke.cs | 可选本机模型联通检查，验证偏好持久化、紧凑输入面板的 80%/150% 缩放、提示词和回复回退，并生成 `test-artifacts/chat-preview.png`、`chat-preferences-preview.png`；需要已启动 Ollama 和 `qwen3:4b-instruct` |
@@ -43,3 +45,5 @@ GIF 仅为程序渲染帧预览，不是真实鼠标录屏；完整测试边界�
 本地试聊连接检查：`powershell -ExecutionPolicy Bypass -File .\tests\run-step4.ps1 ChatSmoke`。它会向本机模型发送两句测试输入，不改变正式桌宠的设置。
 
 当前新图由同一组 2D 画风源图制作，运行时不再叠加旧版的自动配色校正。不同动作的明暗须通过原始 PNG 视觉检查；测试仅验证图像不会在加载时变色，并不宣称逐像素同色。
+
+追视先在原图分辨率的眼部区域内合成固定眼睑、重建眼白与移动虹膜，再缩放到显示尺寸。居中状态使用同一条合成路径，因此“精确回正”指恢复居中合成帧，不表示眼白与原 PNG 逐像素相同。原版半闭眼有独立的范围，避免把上眼皮当成眼白。像素测试不能代替对连续导出帧的视觉检查。

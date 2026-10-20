@@ -27,7 +27,7 @@ namespace MakiseDesktopPet
                     using (Font label = new Font("Arial", 10))
                     {
                         display.Clear(Color.FromArgb(239,237,231));
-                        foreach (int size in new[] { 100, 355, 500 })
+                        foreach (int size in new[] { 100, 220, 355, 500 })
                         using (IdleMotionAnimation idle = new IdleMotionAnimation(directory, directory, size, true, true))
                         {
                             idle.Enter(0);
@@ -52,7 +52,8 @@ namespace MakiseDesktopPet
                                                     outfit.Id + " gaze changed pixels outside eyes");
                                             }
                                         Require(eyes == 2 || (dx == 0 && dy == 0) ? differences == 0 : differences > 0,
-                                            outfit.Id + " eye tracking inactive or closed eye moved");
+                                            outfit.Id + " eye tracking inactive or closed eye moved: size=" +
+                                            size + " eyes=" + eyes + " direction=" + dx + "," + dy);
                                         if (size == 355 && eyes < 2 && dy == 0)
                                         {
                                             int left=(dx+1)*260, top=eyes*395;
@@ -69,7 +70,7 @@ namespace MakiseDesktopPet
                         }
                         sheet.Save(Path.Combine(output,outfit.Id+".png"),ImageFormat.Png);
                     }
-                    Console.WriteLine("PASS: "+outfit.Id+" nine gaze directions, open/half/closed eyes, 100/355/500px and exact recenter");
+                    Console.WriteLine("PASS: "+outfit.Id+" nine gaze directions, open/half/closed eyes, 100/220/355/500px and exact recenter");
                 }
             }
             catch(Exception error) { Console.Error.WriteLine("FAIL: "+error); Environment.ExitCode=1; }

@@ -5,8 +5,8 @@ using System.Runtime.InteropServices;
 
 namespace MakiseDesktopPet
 {
-    // Turn the painted eye surface beneath a fixed eyelid. The opening is
-    // described by the art manifest so adjacent hair and brows stay intact.
+    // Translate the painted iris beneath a fixed eyelid. The manifest bounds
+    // the eye search so adjacent hair and brows stay intact.
     internal sealed class EyeGazeLayer : IDisposable
     {
         internal sealed class Region
@@ -57,27 +57,24 @@ namespace MakiseDesktopPet
                     y >= HeightAt(upper, x) && y <= HeightAt(lower, x);
             }
 
-            internal double EdgeDistance(double x, double y)
+            internal bool SearchContains(double x, double y)
             {
-                return Math.Min(Math.Min(x - Left, Right - x),
-                    Math.Min(y - HeightAt(upper, x), HeightAt(lower, x) - y));
+                double width = Right - Left;
+                double sampleX = Math.Max(Left, Math.Min(Right, x));
+                return x >= Left - width * 0.1 && x <= Right + width * 0.1 &&
+                    y >= HeightAt(upper, sampleX) - width * 0.04 &&
+                    y <= HeightAt(lower, sampleX) + width * 0.16;
             }
 
-            internal void ClampSample(ref double x, ref double y)
-            {
-                // The artwork at the eye rim supplies the exposed sclera.
-                // Reusing that paint avoids a flat, synthetic white gap.
-                x = Math.Max(Left + 0.75, Math.Min(Right - 0.75, x));
-                double top = HeightAt(upper, x) + 0.75;
-                double bottom = HeightAt(lower, x) - 0.75;
-                if (bottom < top) y = (top + bottom) * 0.5;
-                else y = Math.Max(top, Math.Min(bottom, y));
-            }
+            internal double UpperAt(double x)
+            { return HeightAt(upper, Math.Max(Left, Math.Min(Right, x))); }
+
         }
 
         private readonly Bitmap source, output;
         private readonly byte[] original, pixels;
         private readonly Region[] regions;
+        private readonly IrisSurface[] irises;
         private readonly double maxX, maxY;
         private double previousX = double.NaN, previousY = double.NaN;
 
@@ -93,11 +90,15 @@ namespace MakiseDesktopPet
             maxX = maxShift[0] * sx * strength;
             maxY = maxShift[1] * sy * strength;
             regions = new Region[centers.Length];
+            irises = new IrisSurface[centers.Length];
             for (int i = 0; i < regions.Length; i++)
+            {
                 regions[i] = new Region(centers[i], apertures[i], sx, sy, crop);
+                irises[i] = new IrisSurface(original, source.Width, source.Height, regions[i], maxX, maxY);
+            }
         }
 
-        private static byte[] Read(Bitmap image)
+        internal static byte[] Read(Bitmap image)
         {
             byte[] result = new byte[image.Width * image.Height * 4];
             BitmapData data = image.LockBits(new Rectangle(Point.Empty, image.Size),
@@ -117,60 +118,38 @@ namespace MakiseDesktopPet
             return Math.Max(low, Math.Min(high, value));
         }
 
-        private static double Smooth(double low, double high, double value)
-        {
-            double t = Clamp((value - low) / (high - low), 0, 1);
-            return t * t * (3 - 2 * t);
-        }
-
         internal Bitmap Render(double gazeX, double gazeY)
         {
             double dx = Math.Round(Clamp(gazeX, -1, 1) * maxX * 16) / 16;
             double dy = Math.Round(Clamp(gazeY, -1, 1) * maxY * 16) / 16;
-            if (dx == 0 && dy == 0) return source;
+            // Center uses the same composite as moving frames; switching back
+            // to the unsplit source here would cause a visible pop at zero.
             if (dx == previousX && dy == previousY) return output;
             previousX = dx;
             previousY = dy;
             Buffer.BlockCopy(original, 0, pixels, 0, original.Length);
 
             int width = source.Width, height = source.Height;
-            foreach (Region eye in regions)
+            for (int eyeIndex = 0; eyeIndex < regions.Length; eyeIndex++)
             {
-                int left = Math.Max(1, (int)Math.Floor(eye.Left));
-                int right = Math.Min(width - 2, (int)Math.Ceiling(eye.Right));
-                int top = Math.Max(1, (int)Math.Floor(eye.Top));
-                int bottom = Math.Min(height - 2, (int)Math.Ceiling(eye.Bottom));
-                double turnX = dx;
-                double turnY = dy;
-                double xScale = 1 - 0.04 * Math.Abs(dx / maxX);
-                double yScale = 1 - 0.02 * Math.Abs(dy / maxY);
+                IrisSurface iris = irises[eyeIndex];
+                int left = Math.Max(1, iris.Bounds.Left);
+                int right = Math.Min(width - 2, iris.Bounds.Right - 1);
+                int top = Math.Max(1, iris.Bounds.Top);
+                int bottom = Math.Min(height - 2, iris.Bounds.Bottom - 1);
                 for (int y = top; y <= bottom; y++)
                     for (int x = left; x <= right; x++)
                     {
-                        if (!eye.Contains(x, y)) continue;
+                        double coverage = iris.Coverage(x, y);
+                        if (coverage <= 0) continue;
                         int target = (y * width + x) * 4;
-                        double fade = Smooth(0, Math.Min(1.5, maxX * 0.4),
-                            eye.EdgeDistance(x, y));
-                        if (fade <= 0) continue;
-                        double sourceX = eye.X + (x - eye.X - turnX) / xScale;
-                        double sourceY = eye.Y + (y - eye.Y - turnY) / yScale;
-                        eye.ClampSample(ref sourceX, ref sourceY);
-                        int x0 = (int)Math.Floor(sourceX), y0 = (int)Math.Floor(sourceY);
-                        x0 = Math.Max(0, Math.Min(width - 2, x0));
-                        y0 = Math.Max(0, Math.Min(height - 2, y0));
-                        double fx = Clamp(sourceX - x0, 0, 1);
-                        double fy = Clamp(sourceY - y0, 0, 1);
-                        int a = (y0 * width + x0) * 4, b = a + 4;
-                        int c = a + width * 4, d = c + 4;
+                        double backing = iris.Background(x, y) *
+                            (1 - iris.Sample(x - dx, y - dy, 3));
                         for (int channel = 0; channel < 3; channel++)
                         {
-                            double upper = original[a + channel] * (1 - fx) +
-                                original[b + channel] * fx;
-                            double lower = original[c + channel] * (1 - fx) +
-                                original[d + channel] * fx;
-                            double value = upper * (1 - fy) + lower * fy;
-                            pixels[target + channel] = (byte)Math.Round(
-                                original[target + channel] * (1 - fade) + value * fade);
+                            double sample = iris.Sample(x - dx, y - dy, channel) + backing;
+                            pixels[target + channel] = (byte)Math.Round(Clamp(
+                                original[target + channel] * (1 - coverage) + coverage * sample, 0, original[target + 3]));
                         }
                     }
             }

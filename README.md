@@ -4,13 +4,23 @@
 
 透明背景、无边框的 Windows 桌面小挂件：会眨眼、呼吸、回应点击，也会在安静时打瞌睡；原版与七套服饰均能用眼睛追随鼠标。基础互动无需联网、登录、管理员权限或付费 API；可选的本地聊天在首次下载模型后也能离线使用。
 
-**当前版本：v3.2.0。** 普通用户请下载 Windows 运行包，完整解压后双击 `MakiseDesktopPet.exe`，无需编译。原版与七套服饰可随时切换，七套服饰现在各有专属待机姿势；选择会保存在本机，重启后继续使用。
+**当前版本：v3.2.1。** 普通用户请下载 Windows 运行包，完整解压后双击 `MakiseDesktopPet.exe`，无需编译。原版与七套服饰可随时切换，七套服饰现在各有专属待机姿势；选择会保存在本机，重启后继续使用。
 
-[下载 Windows 运行包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/download/v3.2.0/MakiseDesktopPet-Windows.zip) · [发布页面与源码包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/tag/v3.2.0)
+[下载 Windows 运行包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/download/v3.2.1/MakiseDesktopPet-Windows.zip) · [发布页面与源码包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/tag/v3.2.1)
 
 请保留程序旁的 `assets/`、`dialogues.json`、`chat-persona.json` 和配置文件，不要只移动 EXE。运行包内的“使用说明.txt”包含启动、操作、聊天设置、更新和常见问题。
 
 更新时先从托盘退出旧版，再把新版完整解压到新文件夹，运行其中的 EXE。原有设置和聊天偏好会继续沿用；桌面快捷方式请改为指向新版。源码包用于开发，普通使用请选择 **Windows 运行包**。
+
+## v3.2.1 更新：眼球追视修复
+
+- 修复原版与七套服饰转动眼睛时的黑色残边、虹膜接缝与边缘凹陷。
+- 固定眼睑，单独平移虹膜；在原图分辨率的眼部区域合成，再缩小到显示尺寸。居中也走同一绘制路径，避免回正时切换画面。
+- 原版半闭眼使用独立的眼眶范围，避免把上眼皮误处理成眼白。眼白与阴影经过重建，会与旧版略有不同。
+
+![追视修复前后，左旧版右新版](docs/media/gaze-fix-v3.2.1.png)
+
+对照来自相同方向、355 像素角色的程序渲染局部放大图，不是桌面录屏。已检查八套服装在 355/500 像素下的连续转向和眨眼，并加入真实原图的虹膜细节与旧边缘残留检查。详见 [验收记录](docs/TESTING.md)。
 
 ## v3.2.0 更新：七套服饰专属待机
 

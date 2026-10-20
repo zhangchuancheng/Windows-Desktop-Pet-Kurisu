@@ -181,7 +181,7 @@ namespace MakiseDesktopPet
                         byte[] returned = Pixels(animation.Render(1800, 0, out changed));
                         for (int i = 0; i < neutral.Length; i++)
                             Require(neutral[i] == returned[i], "Neutral frame accumulated color changes");
-                        Console.WriteLine("PASS: " + height + " px gaze, stable feet, transparent edges, original colors restored.");
+                        Console.WriteLine("PASS: " + height + " px gaze, stable feet, transparent edges, centered composite restored.");
                     }
 
                     animation.Resize(340);
