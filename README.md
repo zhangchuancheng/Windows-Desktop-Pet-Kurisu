@@ -4,13 +4,25 @@
 
 透明背景、无边框的 Windows 桌面小挂件：会眨眼、呼吸、回应点击，也会在安静时打瞌睡；原版与七套服饰均能用眼睛追随鼠标。基础互动无需联网、登录、管理员权限或付费 API；可选的本地聊天在首次下载模型后也能离线使用。
 
-**当前版本：v3.1.2。** 普通用户请下载 Windows 运行包，完整解压后双击 `MakiseDesktopPet.exe`，无需编译。角色改用统一的 2D 造型，并可从原版切换到七套服饰；选择会保存在本机，重启后继续使用。
+**当前版本：v3.2.0。** 普通用户请下载 Windows 运行包，完整解压后双击 `MakiseDesktopPet.exe`，无需编译。原版与七套服饰可随时切换，七套服饰现在各有专属待机姿势；选择会保存在本机，重启后继续使用。
 
-[下载 Windows 运行包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/download/v3.1.2/MakiseDesktopPet-Windows.zip) · [发布页面与源码包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/tag/v3.1.2)
+[下载 Windows 运行包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/download/v3.2.0/MakiseDesktopPet-Windows.zip) · [发布页面与源码包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/tag/v3.2.0)
 
 请保留程序旁的 `assets/`、`dialogues.json`、`chat-persona.json` 和配置文件，不要只移动 EXE。运行包内的“使用说明.txt”包含启动、操作、聊天设置、更新和常见问题。
 
 更新时先从托盘退出旧版，再把新版完整解压到新文件夹，运行其中的 EXE。原有设置和聊天偏好会继续沿用；桌面快捷方式请改为指向新版。源码包用于开发，普通使用请选择 **Windows 运行包**。
+
+## v3.2.0 更新：七套服饰专属待机
+
+![七套服饰的专属待机姿势](docs/media/outfit-idle-v3.2.jpg)
+
+从左到右：实验服扶颌思考、女仆装扶肘抬手、浴衣轻拢袖口、圣诞装轻扶帽檐、红礼服身前叠手、运动泳装单手叉腰、战斗装腰侧握拳。新版重画手臂、手腕和手指的衔接，让服饰有各自的待机气质。浅色背景仅用于预览，实际素材为透明 PNG。
+
+- 原版经典抱臂姿势保留；七套服饰沿用轻微呼吸、局部眨眼与鼠标追视。
+- 点击、连点、拖拽、睡眠和唤醒继续使用各套既有动作。
+- 右键角色或托盘图标 →“切换服装”即可查看，重启后保留选择。
+
+已通过服饰眨眼、九方向追视及换装回归，检查覆盖 100、355、500 像素。素材制作与检查范围见 [待机动作说明](docs/IDLE-POSES.md)。
 
 ## v3.1.2 更新：交互修复与缩放优化
 
@@ -57,7 +69,7 @@
 
 v3.1.0 已修复七套服饰待机时的眨眼抽动：统一保留待机身体，只改变眼部，呼吸动画持续运行。旧全身眨眼图仍保留作参考，检查结果见 [待机眨眼修复记录](docs/IDLE-BLINK-FIX.md)。下列内容为 v3.0.0 发布时记录。
 
-七套新增皮肤的待机样式（从左到右与服装菜单顺序一致）：
+七套服饰当前的待机样式（图片已更新为 v3.2.0，从左到右与服装菜单顺序一致）：
 
 <table>
   <tr>

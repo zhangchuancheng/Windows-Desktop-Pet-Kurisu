@@ -23,6 +23,8 @@
 
 ## 切换服装
 
+v3.2.0 更新七套服饰的 `idle.png` 为各自专属姿势，原版抱臂保留。制作来源、具体动作与局部眨眼兼容性见 [七套专属待机说明](IDLE-POSES.md)。
+
 右键桌宠，在设置中选择“切换服装”，可选原版，以及实验服、女仆装、浴衣、圣诞装、红礼服、运动泳装、战斗装七套服饰。选择会保存在 `%LOCALAPPDATA%\MakiseDesktopPet\settings.json`，下次启动继续使用；选择原版即可切回现有造型。
 
 七套换装运行图位于 `assets/concepts/outfit-actions-2026-10-19/`：目录 ID 依次为 `lab-coat`、`maid`、`yukata`、`christmas-v2`、`red-dress-handfix`、`beachwear-v2`、`battle-suit`。运行构建把每套目录顶层的 11 张透明 PNG 复制到 `dist/assets/outfits/<ID>/`；生成原图与历史变体保存在本地制作目录，不属于发布源码，也不进入运行包。原版继续使用 `dist/assets/sprites/`。修改服饰图片后重新运行 `build.ps1`，或在退出桌宠后替换运行目录中的对应 PNG。

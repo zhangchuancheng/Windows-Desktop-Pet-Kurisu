@@ -404,3 +404,11 @@
 - 本地 dist/MakiseDesktopPet.exe 已重建；改动记录在 CHANGELOG 的 v3.1.2 部分。旧 v3.0.0 ZIP 和校验文件归档至 releases/previous/v3.0.0-20261020-audit/，归档后校验值匹配。v3.1.2 提供独立的 Windows 运行包、源码包及 SHA-256 校验文件。
 - 新增测试：tests/RobustnessSmoke.cs，已纳入默认入口。复现日志：test-artifacts/step4-RobustnessSmoke.log；缓存画面对照：test-artifacts/audit-20261020/cache-pixel-parity.log；菜单图：test-artifacts/robustness/menu-1366x728.png。
 - 本轮聊天使用模拟 HTTP 响应，未联调真实 Ollama 模型；跨屏、锁屏、其他 Windows 设备和长期运行仍需单独实机验证。
+
+
+## v3.2.0 七套专属待机验收（2026-10-20）
+
+- 七套经用户确认的待机图已统一到 1024 × 1402 RGBA；对比眼眶坐标后保留已有眨眼与追视配置，源目录和运行目录哈希一致。原版、其他动作与配置保持不变。
+- `OutfitIdleSmoke`、`OutfitGazeSmoke`、`OutfitSwitchSmoke` 全部通过。覆盖 100/355/500 像素、四个呼吸时刻、睁眼/半闭眼/闭眼、九方向追视、精确回正、服装加载和持久化、托盘切换、切回原版与缺失服装回滚。
+- 已目视检查七套待机的实际渲染截图，眨眼时身体保持新姿势，追视范围与新图眼部相符。证据目录为 `test-artifacts/outfit-idle/` 和 `test-artifacts/outfit-gaze/`。
+- 本轮属于素材更新，未更改交互代码；真实模型聊天、其他 Windows 设备、多显示器及长期运行未重测。
