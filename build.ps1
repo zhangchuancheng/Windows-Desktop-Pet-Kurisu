@@ -66,6 +66,7 @@ Copy-Item -LiteralPath (Join-Path $projectRoot 'App.config') -Destination (Join-
 $distIcons = Join-Path $dist 'assets\icons'
 New-Item -ItemType Directory -Force -Path $distIcons | Out-Null
 Copy-Item -LiteralPath $appIcon -Destination $distIcons -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot 'assets\icons\app.png') -Destination $distIcons -Force
 $distSprites = Join-Path $dist 'assets\sprites'
 New-Item -ItemType Directory -Force -Path $distSprites | Out-Null
 foreach ($spriteFile in $spriteFiles) {

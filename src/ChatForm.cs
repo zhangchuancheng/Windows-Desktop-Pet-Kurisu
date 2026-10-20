@@ -28,6 +28,7 @@ namespace MakiseDesktopPet
         private Font bodyFont;
         private Font smallFont;
         private int uiScalePercent;
+        private int inputRevision;
 
         internal ChatForm(OllamaChatClient client, Action<string> showReply, Action interact)
         {
@@ -59,7 +60,7 @@ namespace MakiseDesktopPet
             input.BackColor = White;
             input.ForeColor = Ink;
             input.KeyDown += OnInputKeyDown;
-            input.TextChanged += delegate { interact(); };
+            input.TextChanged += delegate { unchecked { inputRevision++; } interact(); };
 
             send.Text = "发送";
             send.FlatStyle = FlatStyle.Flat;
@@ -213,6 +214,7 @@ namespace MakiseDesktopPet
         {
             string text = input.Text.Trim();
             if (text.Length == 0 || pending != null) return;
+            int sentRevision = inputRevision;
             interact();
             CancellationTokenSource request = new CancellationTokenSource();
             pending = request;
@@ -222,7 +224,7 @@ namespace MakiseDesktopPet
             {
                 string answer = await client.SendAsync(text, request.Token);
                 if (IsDisposed || request.IsCancellationRequested) return;
-                input.Clear();
+                if (inputRevision == sentRevision) input.Clear();
                 status.Text = "已回复 · 可以继续说";
                 showReply(answer);
                 input.Focus();

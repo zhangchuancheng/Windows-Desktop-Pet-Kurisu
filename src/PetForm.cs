@@ -66,6 +66,8 @@ namespace MakiseDesktopPet
         private string bubbleText;
         private bool bubbleFromChat;
         private BubblePlacement bubblePlacement;
+        private bool settingsSaveFailed;
+        private bool closing;
 
         internal PetForm(string directory)
             : base(false)
@@ -403,6 +405,38 @@ namespace MakiseDesktopPet
                 Interact();
                 UpdateDragPosition(pointer);
             }
+        }
+
+        private void CancelPointerInteraction()
+        {
+            if (!pressed && !dragging) return;
+            bool wasDragging = dragging;
+            pressed = dragging = false;
+            Capture = false;
+            recentClicks.Clear();
+            motion.CancelRecoil();
+            if (wasDragging)
+            {
+                poseUntil = 0;
+                SetPose(Pose.Idle);
+            }
+            Interact();
+            ScheduleBlink(clock.ElapsedMilliseconds);
+            if (wasDragging) SaveSettings();
+        }
+
+        protected override void OnMouseCaptureChanged(EventArgs e)
+        {
+            base.OnMouseCaptureChanged(e);
+            // Normal mouse-up clears pressed before releasing capture.
+            if (!Capture && pressed) CancelPointerInteraction();
+        }
+
+        protected override void WndProc(ref Message message)
+        {
+            const int WM_CANCELMODE = 0x001F;
+            if (message.Msg == WM_CANCELMODE) CancelPointerInteraction();
+            base.WndProc(ref message);
         }
 
         private void UpdateDragPosition(Point pointer)
@@ -890,11 +924,29 @@ namespace MakiseDesktopPet
             settings.X = baseX;
             settings.Y = baseY;
             settings.HasPosition = true;
-            settingsStore.Save(settings);
+            try
+            {
+                settingsStore.Save(settings);
+                settingsSaveFailed = false;
+            }
+            catch (System.IO.IOException error) { ReportSettingsSaveFailure(error); }
+            catch (UnauthorizedAccessException error) { ReportSettingsSaveFailure(error); }
+            catch (System.Security.SecurityException error) { ReportSettingsSaveFailure(error); }
+        }
+
+        private void ReportSettingsSaveFailure(Exception error)
+        {
+            Trace.TraceError("Unable to save desktop pet settings: " + error);
+            if (!settingsSaveFailed && !closing && tray != null && tray.Visible)
+                tray.ShowBalloonTip(5000, "设置暂未保存",
+                    "当前设置仍然有效，但暂时无法写入文件。请检查文件占用或权限；下次调整时会重试。",
+                    ToolTipIcon.Warning);
+            settingsSaveFailed = true;
         }
 
         private void HideToTray()
         {
+            CancelPointerInteraction();
             Interact();
             chat.HideChat();
             recentClicks.Clear();
@@ -917,8 +969,16 @@ namespace MakiseDesktopPet
 
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
+            closing = true;
+            pressed = dragging = false;
+            Capture = false;
             timer.Stop();
-            SaveSettings();
+            try { SaveSettings(); }
+            finally { ReleaseResources(e); }
+        }
+
+        private void ReleaseResources(FormClosedEventArgs e)
+        {
             SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
             tray.Visible = false;
             tray.Dispose();

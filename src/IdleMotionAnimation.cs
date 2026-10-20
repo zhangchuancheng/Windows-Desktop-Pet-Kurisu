@@ -32,6 +32,7 @@ namespace MakiseDesktopPet
         private readonly bool useLocalBlink;
         private readonly Manifest manifest;
         private readonly Bitmap[] frames = new Bitmap[3];
+        private readonly Bitmap[] localBlinkOriginals = new Bitmap[2];
         private readonly EyeGazeLayer[] gazeFrames = new EyeGazeLayer[2];
         private Bitmap output;
         private byte[] sourcePixels, pixels;
@@ -131,8 +132,9 @@ namespace MakiseDesktopPet
             return scaled;
         }
 
-        private Bitmap LoadLocalBlink(double opening)
+        private Bitmap LoadLocalBlink(double opening, int index)
         {
+            if (localBlinkOriginals[index] != null) return Scale(localBlinkOriginals[index]);
             LocalEyeBlink.Spec spec = new JavaScriptSerializer().Deserialize<LocalEyeBlink.Spec>(
                 File.ReadAllText(Path.Combine(directory, "idle-blink.json")));
             using (Bitmap original = new Bitmap(Path.Combine(directory, "idle.png")))
@@ -152,8 +154,10 @@ namespace MakiseDesktopPet
                             ClampByte(eye.G * alpha + face.G * (1 - alpha)),
                             ClampByte(eye.B * alpha + face.B * (1 - alpha))));
                     }
-                return Scale(original);
+                localBlinkOriginals[index] = original.Clone(
+                    new Rectangle(Point.Empty, original.Size), PixelFormat.Format32bppArgb);
             }
+            return Scale(localBlinkOriginals[index]);
         }
 
         internal void Resize(int height)
@@ -162,8 +166,8 @@ namespace MakiseDesktopPet
             Height = height;
             Width = Math.Max(1, (int)Math.Round(height * (double)manifest.canvas[0] / manifest.canvas[1]));
             frames[0] = LoadScaled("idle.png");
-            frames[1] = useLocalBlink ? LoadLocalBlink(0.48) : LoadScaled("blink-half.png");
-            frames[2] = useLocalBlink ? LoadLocalBlink(0.08) : LoadScaled("blink.png");
+            frames[1] = useLocalBlink ? LoadLocalBlink(0.48, 0) : LoadScaled("blink-half.png");
+            frames[2] = useLocalBlink ? LoadLocalBlink(0.08, 1) : LoadScaled("blink.png");
             Size canvas = new Size(manifest.canvas[0], manifest.canvas[1]);
             Size size = new Size(Width, Height);
             Rectangle full = new Rectangle(0, 0, Width, Height);
@@ -346,6 +350,14 @@ namespace MakiseDesktopPet
             lastEyeX = lastEyeY = lastFaceX = lastFaceY = double.NaN;
         }
 
-        public void Dispose() { ReleaseFrames(); }
+        public void Dispose()
+        {
+            ReleaseFrames();
+            for (int i = 0; i < localBlinkOriginals.Length; i++)
+            {
+                if (localBlinkOriginals[i] != null) localBlinkOriginals[i].Dispose();
+                localBlinkOriginals[i] = null;
+            }
+        }
     }
 }

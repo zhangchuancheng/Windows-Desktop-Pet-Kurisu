@@ -6,6 +6,13 @@ New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
 $package = Join-Path $releaseDir 'MakiseDesktopPet-Windows.zip'
 $dist = Join-Path $PSScriptRoot 'dist'
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'README.md') -Destination $dist -Force
+$runtimeReadme = Join-Path $dist 'README.md'
+$version = (Get-Item -LiteralPath (Join-Path $dist 'MakiseDesktopPet.exe')).VersionInfo.ProductVersion
+$readmeText = [IO.File]::ReadAllText($runtimeReadme)
+$readmeText = $readmeText.Replace('assets/concepts/outfit-actions-2026-10-19/', 'assets/outfits/')
+$readmeText = $readmeText.Replace('(tests/README.md)',
+    "(https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/blob/v$version/tests/README.md)")
+[IO.File]::WriteAllText($runtimeReadme, $readmeText, (New-Object Text.UTF8Encoding($false)))
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'CHANGELOG.md') -Destination $dist -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'docs') -Destination $dist -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'docs\QUICKSTART.zh-CN.txt') -Destination (Join-Path $dist '使用说明.txt') -Force

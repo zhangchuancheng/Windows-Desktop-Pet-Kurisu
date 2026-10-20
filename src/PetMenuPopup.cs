@@ -84,9 +84,10 @@ namespace MakiseDesktopPet
             previewTimer.Stop();
             appliedHeight = height;
             sizeChanged = false;
+            Rectangle work = Screen.FromPoint(pointer).WorkingArea;
+            canvas.FitTo(work.Size);
             canvas.Reset(height, topmost, uiScalePercent, outfitLabel);
             ResizeToCanvas();
-            Rectangle work = Screen.FromPoint(pointer).WorkingArea;
             int x = pointer.X + 4;
             int y = pointer.Y + 4;
             if (x + Width > work.Right) x = pointer.X - Width - 4;
@@ -98,6 +99,7 @@ namespace MakiseDesktopPet
 
         private void ResizeToCanvas()
         {
+            if (Visible) canvas.FitTo(Screen.FromRectangle(Bounds).WorkingArea.Size);
             host.Size = canvas.Size;
             Size = canvas.Size;
             UpdateRegion();
@@ -168,6 +170,7 @@ namespace MakiseDesktopPet
         private bool selectedTopMost = true;
         private int selectedUiScalePercent = PetSettings.DefaultUiScalePercent;
         private string selectedOutfitLabel = "原版";
+        private Size availableArea;
 
         internal event Action HeightChanged;
         internal event Action HeightCommitted;
@@ -191,7 +194,23 @@ namespace MakiseDesktopPet
 
         internal int SelectedHeight { get { return selectedHeight; } }
         internal int SelectedUiScalePercent { get { return selectedUiScalePercent; } }
-        internal float UiScale { get { return selectedUiScalePercent / 100f * 1.2f; } }
+        internal float UiScale
+        {
+            get
+            {
+                float requested = selectedUiScalePercent / 100f * 1.2f;
+                if (availableArea.IsEmpty) return requested;
+                return Math.Min(requested, Math.Min(
+                    Math.Max(1, availableArea.Width - 16) / (float)BaseWidth,
+                    Math.Max(1, availableArea.Height - 16) / (float)BaseHeight));
+            }
+        }
+
+        internal void FitTo(Size area)
+        {
+            availableArea = area;
+            SetUiScale(selectedUiScalePercent);
+        }
 
         internal void Reset(int height, bool topmost, int uiScalePercent, string outfitLabel)
         {
@@ -343,6 +362,17 @@ namespace MakiseDesktopPet
             base.OnMouseLeave(e);
             if (sliding || hover == Target.None) return;
             hover = Target.None;
+            Invalidate();
+        }
+
+        protected override void OnMouseCaptureChanged(EventArgs e)
+        {
+            base.OnMouseCaptureChanged(e);
+            if (Capture || pressed == Target.None) return;
+            bool wasSliding = sliding;
+            sliding = false;
+            pressed = Target.None;
+            if (wasSliding && HeightCommitted != null) HeightCommitted();
             Invalidate();
         }
 

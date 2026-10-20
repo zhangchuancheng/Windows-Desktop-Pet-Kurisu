@@ -1,4 +1,4 @@
-$Tests = @('SizeSliderSmoke', 'OutfitSwitchSmoke', 'OutfitDragSmoke', 'OutfitIdleSmoke', 'OutfitGazeSmoke', 'IdleMotionSmoke', 'GazeSmoke', 'ClickArtSmoke', 'DialogueSmoke',
+$Tests = @('RobustnessSmoke', 'SizeSliderSmoke', 'OutfitSwitchSmoke', 'OutfitDragSmoke', 'OutfitIdleSmoke', 'OutfitGazeSmoke', 'IdleMotionSmoke', 'GazeSmoke', 'ClickArtSmoke', 'DialogueSmoke',
     'RapidClickSmoke', 'DragAnimationSmoke', 'SleepMotionSmoke', 'Step4Acceptance')
 if ($args.Count -gt 0) { $Tests = $args }
 $ErrorActionPreference = 'Stop'

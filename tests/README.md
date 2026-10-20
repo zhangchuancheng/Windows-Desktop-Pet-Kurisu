@@ -10,6 +10,7 @@ powershell -ExecutionPolicy Bypass -File .\tests\run-step4.ps1
 
 | 文件 | 作用 |
 | --- | --- |
+| RobustnessSmoke.cs | 离线模拟聊天回复，检查等待期间草稿、取消及失败恢复；使用独立配置与文件锁验证保存失败不影响操作和退出；检查拖拽捕获丢失、隐藏恢复、小工作区菜单命中与眨眼缓存复用，并输出缩放耗时。无需 Ollama。 |
 | SizeSliderSmoke.cs | 后台检查菜单绘制、“切换服装”和“聊天偏好”入口、角色大小滑条、界面 80%/150% 缩放、旧版 120% 设置迁移、设置保存与焦点；可选 `--visible` 检查弹出位置、实际画面与缩放后的点击区域 |
 | OutfitSwitchSmoke.cs | 使用 `build.ps1` 生成的 `dist/assets/outfits/` 后台切换七套服装，逐张核对运行素材、检查设置持久化、未知 ID 回退原版，以及缺少服装包时保留原有服装；测试设置写入独立的 `test-artifacts/outfit-settings.json` |
 | IdleMotionSmoke.cs | 四尺寸新 2D 待机图、固定脚部、alpha、三档眨眼；355 像素静止与运动帧的清晰度对照及 355/500 像素短时耗时检查 |

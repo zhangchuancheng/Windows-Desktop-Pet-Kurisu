@@ -4,11 +4,23 @@
 
 透明背景、无边框的 Windows 桌面小挂件：会眨眼、呼吸、回应点击，也会在安静时打瞌睡；原版与七套服饰均能用眼睛追随鼠标。基础互动无需联网、登录、管理员权限或付费 API；可选的本地聊天在首次下载模型后也能离线使用。
 
-**当前版本：v3.1.1。** 普通用户请下载 Windows 运行包，完整解压后双击 `MakiseDesktopPet.exe`，无需编译。角色改用统一的 2D 造型，并可从原版切换到七套服饰；选择会保存在本机，重启后继续使用。
+**当前版本：v3.1.2。** 普通用户请下载 Windows 运行包，完整解压后双击 `MakiseDesktopPet.exe`，无需编译。角色改用统一的 2D 造型，并可从原版切换到七套服饰；选择会保存在本机，重启后继续使用。
 
-[下载 Windows 运行包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/download/v3.1.1/MakiseDesktopPet-Windows.zip) · [发布页面与源码包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/tag/v3.1.1)
+[下载 Windows 运行包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/download/v3.1.2/MakiseDesktopPet-Windows.zip) · [发布页面与源码包](https://github.com/zhangchuancheng/Windows-Desktop-Pet-Kurisu/releases/tag/v3.1.2)
 
 请保留程序旁的 `assets/`、`dialogues.json`、`chat-persona.json` 和配置文件，不要只移动 EXE。运行包内的“使用说明.txt”包含启动、操作、聊天设置、更新和常见问题。
+
+更新时先从托盘退出旧版，再把新版完整解压到新文件夹，运行其中的 EXE。原有设置和聊天偏好会继续沿用；桌面快捷方式请改为指向新版。源码包用于开发，普通使用请选择 **Windows 运行包**。
+
+## v3.1.2 更新：交互修复与缩放优化
+
+- 保留等待聊天回复期间编辑的新草稿，避免回复到达时误清空输入。
+- 拖拽被系统中断、鼠标捕获丢失或隐藏角色后正确恢复；调整大小的滑条中断时也会保存当前选择。
+- 设置文件被占用或无写入权限时，当前设置继续生效并提示保存失败，后续调整会重试；退出时仍完成资源清理。
+- 缓存服饰眨眼原图，减少调整大小时的卡顿。本机实验服、战斗装单次缩放由约 0.9–1.1 秒降至约 0.17–0.25 秒；不同电脑耗时会不同，仍存在短暂同步处理时间。
+- 设置菜单自动适配屏幕工作区，避免小屏幕上底部选项不可见，同时保留用户选择的缩放比例。
+
+本轮 14 项回归通过；七套服饰、三种尺寸、三种眼睛状态共 63 组画面与修复前逐像素一致。完整记录见 [更新说明](CHANGELOG.md) 和 [验收记录](docs/TESTING.md)。
 
 ## 本地聊天（可选）
 
